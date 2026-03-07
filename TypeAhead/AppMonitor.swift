@@ -39,14 +39,18 @@ class AppMonitor: ObservableObject {
     private var watchdog: AnyCancellable?
 
     init() {
-        UserDefaults.standard.register(defaults: ["triggerPrefix": "@"])
+        UserDefaults.standard.register(defaults: [
+            "triggerPrefix": "@",
+            "showOnPrefix": true,
+            "searchExpansions": true
+        ])
         let buffer = WordBuffer()
         let monitor = KeyboardMonitor(wordBuffer: buffer)
         self.wordBuffer = buffer
         self.keyboardMonitor = monitor
         buffer.triggerPrefix = Self.storedTriggerPrefix()
-        buffer.showOnPrefix = UserDefaults.standard.bool(forKey: "showOnPrefix")
-        buffer.searchExpansions = UserDefaults.standard.bool(forKey: "searchExpansions")
+        buffer.showOnPrefix = UserDefaults.standard.bool(forKey: "showOnPrefix")   // defaults true
+        buffer.searchExpansions = UserDefaults.standard.bool(forKey: "searchExpansions") // defaults true
         setupCallbacks()
         if isEnabled { keyboardMonitor.start() }
         startWatchdog()

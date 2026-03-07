@@ -8,8 +8,8 @@ import SwiftUI
 struct SnippetsView: View {
     @EnvironmentObject var store: SnippetStore
     @AppStorage("triggerPrefix") private var triggerPrefix: String = "@"
-    @AppStorage("showOnPrefix") private var showOnPrefix: Bool = false
-    @AppStorage("searchExpansions") private var searchExpansions: Bool = false
+    @AppStorage("showOnPrefix") private var showOnPrefix: Bool = true
+    @AppStorage("searchExpansions") private var searchExpansions: Bool = true
 
     @State private var newTrigger = ""
     @State private var newName = ""
