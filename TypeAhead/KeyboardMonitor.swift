@@ -46,18 +46,10 @@ class KeyboardMonitor {
     }
 
     static func isInputMonitoringGranted() -> Bool {
-        // Attempt a listenOnly tap — succeeds only if Input Monitoring is granted.
-        let mask = CGEventMask(1 << CGEventType.keyDown.rawValue)
-        let tap = CGEvent.tapCreate(
-            tap: .cgSessionEventTap,
-            place: .headInsertEventTap,
-            options: .listenOnly,
-            eventsOfInterest: mask,
-            callback: { _, _, event, _ in Unmanaged.passRetained(event) },
-            userInfo: nil
-        )
-        guard let tap else { return false }
-        CGEvent.tapEnable(tap: tap, enable: false)
+        // NSEvent.addGlobalMonitorForEvents returns nil when Input Monitoring is not granted.
+        let monitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { _ in }
+        guard let monitor else { return false }
+        NSEvent.removeMonitor(monitor)
         return true
     }
 

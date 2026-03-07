@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import Combine
 
 struct OnboardingView: View {
     @Environment(\.dismissWindow) var dismissWindow
@@ -12,7 +13,7 @@ struct OnboardingView: View {
     @State private var inputMonitoringGranted = false
     @State private var bothGranted = false
 
-    private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    private let timer = Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -61,9 +62,14 @@ struct OnboardingView: View {
                         .foregroundStyle(.green)
                         .font(.callout.bold())
                 } else {
-                    Text("Grant both permissions, then TypeAhead enables automatically.")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
+                    VStack(spacing: 8) {
+                        Text("Grant both permissions above, then TypeAhead enables automatically.")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                        Button("Re-check Permissions") { checkPermissions() }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                    }
                 }
             }
             .padding(.top, 20)
