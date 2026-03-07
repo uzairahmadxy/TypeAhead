@@ -7,6 +7,7 @@ import SwiftUI
 
 struct MenuBarView: View {
     @EnvironmentObject var appMonitor: AppMonitor
+    @Environment(\.openWindow) var openWindow
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -29,6 +30,14 @@ struct MenuBarView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Toggle("Enable TypeAhead", isOn: $appMonitor.isEnabled)
                     .toggleStyle(.switch)
+
+                Button("Manage Snippets…") {
+                    NSApp.activate(ignoringOtherApps: true)
+                    openWindow(id: "snippets")
+                }
+                .buttonStyle(.plain)
+
+                Divider()
 
                 Button("Open Accessibility Settings…") {
                     appMonitor.openAccessibilitySettings()

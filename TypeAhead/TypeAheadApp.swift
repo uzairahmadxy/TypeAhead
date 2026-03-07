@@ -16,15 +16,21 @@ struct TypeAheadApp: App {
                 .environmentObject(appMonitor)
         }
         .menuBarExtraStyle(.window)
+
+        Window("Snippets — TypeAhead", id: "snippets") {
+            SnippetsView()
+                .environmentObject(appMonitor.snippetStore)
+        }
+        .defaultSize(width: 560, height: 380)
+        .defaultPosition(.center)
     }
 }
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Enforce single instance: terminate any older copies of this app
         let bundleID = Bundle.main.bundleIdentifier!
-        let others = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
+        NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
             .filter { $0.processIdentifier != ProcessInfo.processInfo.processIdentifier }
-        others.forEach { $0.terminate() }
+            .forEach { $0.terminate() }
     }
 }

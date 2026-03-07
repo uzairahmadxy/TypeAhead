@@ -24,19 +24,17 @@ class AppMonitor: ObservableObject {
     /// True only when the CGEventTap is actually running.
     @Published var tapActive = false
 
-    private let wordBuffer: WordBuffer
+    let snippetStore = SnippetStore()
+
+    private var wordBuffer: WordBuffer
     private let keyboardMonitor: KeyboardMonitor
     private let suggestionPanel = SuggestionPanel()
     private let cursorTracker = CursorTracker()
     private let textInjector = TextInjector()
+    private var cancellables = Set<AnyCancellable>()
 
     init() {
-        let snippets: [String: String] = [
-            "@email": "uzair@gmail.com",
-            "@addr":  "123 Fake St Montreal",
-            "@name":  "Uzair Ahmad"
-        ]
-        let buffer = WordBuffer(snippets: snippets)
+        let buffer = WordBuffer(snippets: [:])
         let monitor = KeyboardMonitor(wordBuffer: buffer)
         self.wordBuffer = buffer
         self.keyboardMonitor = monitor
@@ -69,9 +67,14 @@ class AppMonitor: ObservableObject {
         }
         keyboardMonitor.onTapStateChanged = { [weak self] active in
             self?.tapActive = active
-            // If tap failed to start, snap the toggle back off
             if !active { self?.isEnabled = false }
         }
+
+        // Keep word buffer in sync with snippet store
+        snippetStore.$snippets
+            .map { [weak self] _ in self?.snippetStore.asDict ?? [:] }
+            .sink { [weak self] dict in self?.wordBuffer.updateSnippets(dict) }
+            .store(in: &cancellables)
     }
 
     // MARK: - Popup

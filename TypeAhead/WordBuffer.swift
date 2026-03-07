@@ -6,7 +6,7 @@
 import Foundation
 
 class WordBuffer {
-    private let snippets: [String: String]
+    private var snippets: [String: String]
     private(set) var buffer = ""
 
     var bufferLength: Int { buffer.count }
@@ -17,6 +17,11 @@ class WordBuffer {
 
     init(snippets: [String: String]) {
         self.snippets = snippets
+    }
+
+    func updateSnippets(_ snippets: [String: String]) {
+        self.snippets = snippets
+        reset()
     }
 
     func process(character: Character) {
