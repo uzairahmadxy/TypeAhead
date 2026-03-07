@@ -17,8 +17,12 @@ class KeyboardMonitor {
     var onSpecialKey: ((SpecialKey) -> Bool)?
 
     /// Returns whether the suggestion popup is currently visible.
-    /// Read synchronously from the main-thread event tap callback.
     var isPopupVisible: () -> Bool = { false }
+
+    /// Called when the tap is successfully created or torn down.
+    var onTapStateChanged: ((Bool) -> Void)?
+
+    var isTapActive: Bool { eventTap != nil }
 
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
@@ -27,25 +31,21 @@ class KeyboardMonitor {
         self.wordBuffer = wordBuffer
     }
 
+    // MARK: - Permission helpers
+
     static func isAccessibilityGranted() -> Bool {
         AXIsProcessTrusted()
     }
 
-    /// Triggers the system permission prompt. Returns whether access is already granted.
-    @discardableResult
-    static func requestAccessibilityPermission() -> Bool {
+    static func requestAccessibilityPermission() {
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
-        return AXIsProcessTrustedWithOptions(options)
+        AXIsProcessTrustedWithOptions(options)
     }
+
+    // MARK: - Tap lifecycle
 
     func start() {
         guard eventTap == nil else { return }
-
-        guard Self.isAccessibilityGranted() else {
-            print("[TypeAhead] ⚠️  Accessibility permission not granted — requesting now.")
-            Self.requestAccessibilityPermission()
-            return
-        }
 
         let eventMask = CGEventMask(1 << CGEventType.keyDown.rawValue)
         let selfPtr = Unmanaged.passUnretained(self).toOpaque()
@@ -53,34 +53,31 @@ class KeyboardMonitor {
         guard let tap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
             place: .headInsertEventTap,
-            options: .defaultTap,          // defaultTap so we can consume Tab/Esc
+            options: .defaultTap,
             eventsOfInterest: eventMask,
             callback: { (_, type, event, userInfo) -> Unmanaged<CGEvent>? in
                 guard type == .keyDown, let ptr = userInfo else {
                     return Unmanaged.passRetained(event)
                 }
-
-                // Skip events we injected ourselves to avoid re-entrancy
                 if event.getIntegerValueField(.eventSourceUserData) == TextInjector.markerValue {
                     return Unmanaged.passRetained(event)
                 }
-
                 let monitor = Unmanaged<KeyboardMonitor>.fromOpaque(ptr).takeUnretainedValue()
-
-                // The tap fires on the main run loop thread — safe to use MainActor state.
-                return MainActor.assumeIsolated {
-                    monitor.handleEvent(event)
-                }
+                return MainActor.assumeIsolated { monitor.handleEvent(event) }
             },
             userInfo: selfPtr
         ) else {
-            print("[TypeAhead] ⚠️  Failed to create event tap (permission granted but tap refused).")
-            print("[TypeAhead]    After a Xcode rebuild the binary signature changes and macOS revokes the tap.")
-            print("[TypeAhead]    Fix: System Settings → Privacy & Security → Accessibility →")
-            print("[TypeAhead]         toggle TypeAhead OFF then back ON, then re-enable the toggle in the app.")
-            // Legacy message kept for grep-ability:
-            print("[TypeAhead] ⚠️  Failed to create event tap.")
-            print("[TypeAhead]    System Settings → Privacy & Security → Accessibility → grant TypeAhead access, then relaunch.")
+            // Tap creation failed — if we don't have permission, prompt for it
+            if !Self.isAccessibilityGranted() {
+                print("[TypeAhead] Accessibility permission missing — opening prompt.")
+                Self.requestAccessibilityPermission()
+            } else {
+                print("[TypeAhead] ⚠️  Tap creation failed despite having permission.")
+                print("[TypeAhead]    Xcode rebuild invalidated the binary signature.")
+                print("[TypeAhead]    → System Settings › Privacy & Security › Accessibility")
+                print("[TypeAhead]      toggle TypeAhead OFF then ON, then flip the toggle in the app.")
+            }
+            onTapStateChanged?(false)
             return
         }
 
@@ -88,6 +85,7 @@ class KeyboardMonitor {
         runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
         CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
+        onTapStateChanged?(true)
         print("[TypeAhead] ✅ Keyboard monitoring started.")
     }
 
@@ -99,15 +97,15 @@ class KeyboardMonitor {
             runLoopSource = nil
         }
         eventTap = nil
+        onTapStateChanged?(false)
         print("[TypeAhead] Keyboard monitoring stopped.")
     }
 
-    // MARK: - Private (called on main thread via MainActor.assumeIsolated)
+    // MARK: - Event handling (runs on main thread)
 
     private func handleEvent(_ event: CGEvent) -> Unmanaged<CGEvent>? {
         let keyCode = Int(event.getIntegerValueField(.keyboardEventKeycode))
 
-        // Intercept navigation keys when the popup is visible
         if isPopupVisible() {
             let specialKey: SpecialKey? = switch keyCode {
                 case 0x30: .tab
@@ -118,16 +116,13 @@ class KeyboardMonitor {
                 default:   nil
             }
             if let specialKey, onSpecialKey?(specialKey) == true {
-                return nil  // consume the event
+                return nil
             }
         }
 
-        // Regular character — feed to word buffer
         if let nsEvent = NSEvent(cgEvent: event),
            let chars = nsEvent.characters, !chars.isEmpty {
-            for char in chars {
-                wordBuffer.process(character: char)
-            }
+            for char in chars { wordBuffer.process(character: char) }
         }
 
         return Unmanaged.passRetained(event)

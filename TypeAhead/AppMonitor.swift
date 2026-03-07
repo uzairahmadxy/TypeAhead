@@ -12,29 +12,17 @@ class AppMonitor: ObservableObject {
     @Published var isEnabled = false {
         didSet {
             if isEnabled {
-                if KeyboardMonitor.isAccessibilityGranted() {
-                    keyboardMonitor.start()
-                } else {
-                    KeyboardMonitor.requestAccessibilityPermission()
-                    isEnabled = false   // reset toggle; user must re-enable after granting
-                }
+                keyboardMonitor.start()
             } else {
                 keyboardMonitor.stop()
+                suggestionPanel.hide()
+                wordBuffer.reset()
             }
         }
     }
 
-    @Published var hasPermission: Bool = KeyboardMonitor.isAccessibilityGranted()
-
-    func recheckPermission() {
-        hasPermission = KeyboardMonitor.isAccessibilityGranted()
-    }
-
-    func openAccessibilitySettings() {
-        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
-            NSWorkspace.shared.open(url)
-        }
-    }
+    /// True only when the CGEventTap is actually running.
+    @Published var tapActive = false
 
     private let wordBuffer: WordBuffer
     private let keyboardMonitor: KeyboardMonitor
@@ -52,8 +40,13 @@ class AppMonitor: ObservableObject {
         let monitor = KeyboardMonitor(wordBuffer: buffer)
         self.wordBuffer = buffer
         self.keyboardMonitor = monitor
-
         setupCallbacks()
+    }
+
+    func openAccessibilitySettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     // MARK: - Wiring
@@ -62,43 +55,35 @@ class AppMonitor: ObservableObject {
         wordBuffer.onMatchesChanged = { [weak self] matches, _ in
             self?.handleMatchesChanged(matches)
         }
-
         keyboardMonitor.isPopupVisible = { [weak self] in
             self?.suggestionPanel.isVisible ?? false
         }
-
         keyboardMonitor.onSpecialKey = { [weak self] key in
             self?.handleSpecialKey(key) ?? false
         }
+        keyboardMonitor.onTapStateChanged = { [weak self] active in
+            self?.tapActive = active
+            // If tap failed to start, snap the toggle back off
+            if !active { self?.isEnabled = false }
+        }
     }
 
-    // MARK: - Popup management
+    // MARK: - Popup
 
     private func handleMatchesChanged(_ matches: [(key: String, value: String)]) {
         if matches.isEmpty {
             suggestionPanel.hide()
         } else {
-            let cursorRect = cursorTracker.getCursorRect()
-            suggestionPanel.show(matches: matches, near: cursorRect)
+            suggestionPanel.show(matches: matches, near: cursorTracker.getCursorRect())
         }
     }
 
-    /// Returns true if the event should be consumed.
     private func handleSpecialKey(_ key: SpecialKey) -> Bool {
         switch key {
-        case .tab, .returnKey:
-            acceptSuggestion()
-            return true
-        case .escape:
-            wordBuffer.reset()
-            suggestionPanel.hide()
-            return true
-        case .arrowDown:
-            suggestionPanel.selectNext()
-            return true
-        case .arrowUp:
-            suggestionPanel.selectPrevious()
-            return true
+        case .tab, .returnKey: acceptSuggestion(); return true
+        case .escape:          wordBuffer.reset(); suggestionPanel.hide(); return true
+        case .arrowDown:       suggestionPanel.selectNext(); return true
+        case .arrowUp:         suggestionPanel.selectPrevious(); return true
         }
     }
 

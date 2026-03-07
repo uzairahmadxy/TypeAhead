@@ -11,15 +11,31 @@ struct MenuBarView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
 
-            if !appMonitor.hasPermission {
-                permissionBanner
-                Divider()
+            // Status row
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(statusColor)
+                    .frame(width: 8, height: 8)
+                Text(statusText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
+            .padding(.horizontal, 14)
+            .padding(.top, 12)
+            .padding(.bottom, 6)
 
-            VStack(alignment: .leading, spacing: 10) {
+            Divider()
+
+            VStack(alignment: .leading, spacing: 8) {
                 Toggle("Enable TypeAhead", isOn: $appMonitor.isEnabled)
                     .toggleStyle(.switch)
-                    .disabled(!appMonitor.hasPermission)
+
+                Button("Open Accessibility Settings…") {
+                    appMonitor.openAccessibilitySettings()
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .buttonStyle(.plain)
 
                 Divider()
 
@@ -29,28 +45,19 @@ struct MenuBarView: View {
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
             }
-            .padding()
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
         }
         .frame(width: 240)
     }
 
-    private var permissionBanner: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Label("Accessibility access required", systemImage: "lock.fill")
-                .font(.caption)
-                .foregroundStyle(.orange)
+    private var statusColor: Color {
+        appMonitor.tapActive ? .green : (appMonitor.isEnabled ? .orange : .secondary)
+    }
 
-            Button("Open System Settings…") {
-                appMonitor.openAccessibilitySettings()
-            }
-            .font(.caption)
-
-            Button("I've granted access — recheck") {
-                appMonitor.recheckPermission()
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
-        }
-        .padding()
+    private var statusText: String {
+        if appMonitor.tapActive { return "Active" }
+        if appMonitor.isEnabled { return "Tap failed — see console" }
+        return "Inactive"
     }
 }
