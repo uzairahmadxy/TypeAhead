@@ -48,7 +48,7 @@ struct OnboardingView: View {
                     title: "Input Monitoring",
                     detail: "Allows TypeAhead to detect keypresses globally.",
                     granted: inputMonitoringGranted,
-                    action: nil,
+                    action: { CGRequestListenEventAccess() },
                     settingsURL: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent"
                 )
             }
