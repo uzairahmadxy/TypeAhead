@@ -7,6 +7,9 @@ import SwiftUI
 
 struct SnippetsView: View {
     @EnvironmentObject var store: SnippetStore
+    @AppStorage("triggerPrefix") private var triggerPrefix: String = "@"
+    @AppStorage("showOnPrefix") private var showOnPrefix: Bool = false
+    @AppStorage("searchExpansions") private var searchExpansions: Bool = false
 
     @State private var newTrigger = ""
     @State private var newName = ""
@@ -22,6 +25,8 @@ struct SnippetsView: View {
             snippetList
             Divider()
             addRow
+            Divider()
+            settingsRow
         }
         .frame(minWidth: 620, minHeight: 280)
     }
@@ -120,6 +125,32 @@ struct SnippetsView: View {
                 .disabled(newTrigger.trimmingCharacters(in: .whitespaces).isEmpty || newExpansion.isEmpty)
         }
         .padding(12)
+    }
+
+    private var settingsRow: some View {
+        HStack(spacing: 16) {
+            HStack(spacing: 6) {
+                Text("Trigger prefix:")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                TextField("", text: $triggerPrefix)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+                    .frame(width: 56)
+                    .multilineTextAlignment(.center)
+            }
+            Toggle("Show all on prefix", isOn: $showOnPrefix)
+                .toggleStyle(.switch)
+                .font(.caption)
+                .controlSize(.small)
+            Toggle("Search expansions", isOn: $searchExpansions)
+                .toggleStyle(.switch)
+                .font(.caption)
+                .controlSize(.small)
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
     }
 
     // MARK: - Actions

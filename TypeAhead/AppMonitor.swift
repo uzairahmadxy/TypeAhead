@@ -35,15 +35,24 @@ class AppMonitor: ObservableObject {
     private let cursorTracker = CursorTracker()
     private let textInjector = TextInjector()
     private var cancellables = Set<AnyCancellable>()
+    private var lastExpansionLength = 0
 
     init() {
+        UserDefaults.standard.register(defaults: ["triggerPrefix": "@"])
         let buffer = WordBuffer()
         let monitor = KeyboardMonitor(wordBuffer: buffer)
         self.wordBuffer = buffer
         self.keyboardMonitor = monitor
+        buffer.triggerPrefix = Self.storedTriggerPrefix()
+        buffer.showOnPrefix = UserDefaults.standard.bool(forKey: "showOnPrefix")
+        buffer.searchExpansions = UserDefaults.standard.bool(forKey: "searchExpansions")
         setupCallbacks()
-        // didSet doesn't fire during init, so kick start manually if saved state is enabled
         if isEnabled { keyboardMonitor.start() }
+    }
+
+    private static func storedTriggerPrefix() -> String {
+        let raw = UserDefaults.standard.string(forKey: "triggerPrefix") ?? "@"
+        return raw.isEmpty ? "@" : raw
     }
 
     func openAccessibilitySettings() {
@@ -61,8 +70,16 @@ class AppMonitor: ObservableObject {
     // MARK: - Wiring
 
     private func setupCallbacks() {
-        wordBuffer.onMatchesChanged = { [weak self] matches, _ in
+        wordBuffer.onMatchesChanged = { [weak self] matches, buffer in
+            if !buffer.isEmpty { self?.lastExpansionLength = 0 }
             self?.handleMatchesChanged(matches)
+        }
+        keyboardMonitor.onBackspace = { [weak self] in
+            guard let self, lastExpansionLength > 0 else { return false }
+            let len = lastExpansionLength
+            lastExpansionLength = 0
+            textInjector.inject(expansion: "", replacingPrefixOfLength: len)
+            return true
         }
         keyboardMonitor.isPopupVisible = { [weak self] in
             self?.suggestionPanel.isVisible ?? false
@@ -78,6 +95,22 @@ class AppMonitor: ObservableObject {
         // Keep word buffer in sync with snippet store
         snippetStore.$snippets
             .sink { [weak self] snippets in self?.wordBuffer.updateSnippets(snippets) }
+            .store(in: &cancellables)
+
+        // Sync trigger prefix from UserDefaults whenever it changes (e.g. from SnippetsView)
+        NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                let prefix = Self.storedTriggerPrefix()
+                if wordBuffer.triggerPrefix != prefix {
+                    wordBuffer.triggerPrefix = prefix
+                    wordBuffer.reset()
+                    print("[TypeAhead] Trigger prefix updated to '\(prefix)'")
+                }
+                wordBuffer.showOnPrefix = UserDefaults.standard.bool(forKey: "showOnPrefix")
+                wordBuffer.searchExpansions = UserDefaults.standard.bool(forKey: "searchExpansions")
+            }
             .store(in: &cancellables)
     }
 
@@ -106,5 +139,7 @@ class AppMonitor: ObservableObject {
         wordBuffer.reset()
         suggestionPanel.hide()
         textInjector.inject(expansion: snippet.expansion, replacingPrefixOfLength: prefixLen)
+        // Record expansion length so the next backspace can undo it
+        lastExpansionLength = snippet.expansion.count
     }
 }
