@@ -2,16 +2,18 @@
 //  TypeAheadApp.swift
 //  TypeAhead
 //
-//  Created by Uzair on 2026-03-07.
-//
 
 import SwiftUI
 
 @main
 struct TypeAheadApp: App {
+    @StateObject private var appMonitor = AppMonitor()
+
     var body: some Scene {
-        WindowGroup {
-            ContentView()
+        MenuBarExtra("TypeAhead", systemImage: "keyboard") {
+            MenuBarView()
+                .environmentObject(appMonitor)
         }
+        .menuBarExtraStyle(.window)
     }
 }
