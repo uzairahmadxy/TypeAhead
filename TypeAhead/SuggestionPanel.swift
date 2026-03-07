@@ -28,6 +28,9 @@ final class SuggestionPanel: NSPanel {
         hasShadow = true
         isMovable = false
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        // Force dark appearance so the popup is always a dark HUD regardless
+        // of the underlying window's color scheme.
+        appearance = NSAppearance(named: .darkAqua)
     }
 
     // MARK: - Public API
