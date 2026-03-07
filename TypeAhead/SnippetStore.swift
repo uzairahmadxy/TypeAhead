@@ -41,6 +41,28 @@ class SnippetStore: ObservableObject {
         snippets.remove(atOffsets: offsets)
     }
 
+    func move(from source: IndexSet, to destination: Int) {
+        snippets.move(fromOffsets: source, toOffset: destination)
+    }
+
+    func importSnippets(from url: URL) {
+        guard url.startAccessingSecurityScopedResource() else { return }
+        defer { url.stopAccessingSecurityScopedResource() }
+        guard let data = try? Data(contentsOf: url),
+              let imported = try? JSONDecoder().decode([Snippet].self, from: data)
+        else { return }
+        let existingIDs = Set(snippets.map(\.id))
+        let newSnippets = imported.filter { !existingIDs.contains($0.id) }
+        snippets.append(contentsOf: newSnippets)
+    }
+
+    func exportSnippets(to url: URL) {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .prettyPrinted
+        guard let data = try? encoder.encode(snippets) else { return }
+        try? data.write(to: url, options: .atomic)
+    }
+
     // MARK: - Persistence
 
     private func load() {
@@ -48,13 +70,7 @@ class SnippetStore: ObservableObject {
            let saved = try? JSONDecoder().decode([Snippet].self, from: data) {
             snippets = saved
         } else {
-            // Seed defaults on first launch
-            snippets = [
-                Snippet(trigger: "@email", expansion: "uzair@gmail.com"),
-                Snippet(trigger: "@addr",  expansion: "123 Fake St Montreal"),
-                Snippet(trigger: "@name",  expansion: "Uzair Ahmad"),
-            ]
-            save()
+            snippets = []
         }
     }
 

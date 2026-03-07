@@ -15,6 +15,8 @@ struct SnippetsView: View {
     @State private var newName = ""
     @State private var newExpansion = ""
     @FocusState private var focus: FocusField?
+    @State private var showingImporter = false
+    @State private var showingExporter = false
 
     enum FocusField { case trigger, name, expansion }
 
@@ -29,6 +31,32 @@ struct SnippetsView: View {
             settingsRow
         }
         .frame(minWidth: 620, minHeight: 280)
+        .toolbar {
+            ToolbarItemGroup {
+                Button("Import…") { showingImporter = true }
+                Button("Export…") { showingExporter = true }
+                    .disabled(store.snippets.isEmpty)
+            }
+        }
+        .fileImporter(
+            isPresented: $showingImporter,
+            allowedContentTypes: [.json],
+            allowsMultipleSelection: false
+        ) { result in
+            if case .success(let urls) = result, let url = urls.first {
+                store.importSnippets(from: url)
+            }
+        }
+        .fileExporter(
+            isPresented: $showingExporter,
+            document: SnippetsDocument(snippets: store.snippets),
+            contentType: .json,
+            defaultFilename: "snippets"
+        ) { result in
+            if case .success(let url) = result {
+                store.exportSnippets(to: url)
+            }
+        }
     }
 
     // MARK: - Subviews
@@ -62,6 +90,7 @@ struct SnippetsView: View {
                     snippetRow(snippet: $snippet)
                 }
                 .onDelete { store.delete(at: $0) }
+                .onMove { store.move(from: $0, to: $1) }
             }
             .listStyle(.plain)
         }
@@ -161,6 +190,29 @@ struct SnippetsView: View {
         newName = ""
         newExpansion = ""
         focus = .trigger
+    }
+}
+
+// MARK: - FileDocument for export
+
+import UniformTypeIdentifiers
+
+struct SnippetsDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.json] }
+    var snippets: [Snippet]
+
+    init(snippets: [Snippet]) { self.snippets = snippets }
+
+    init(configuration: ReadConfiguration) throws {
+        guard let data = configuration.file.regularFileContents else { throw CocoaError(.fileReadCorruptFile) }
+        snippets = try JSONDecoder().decode([Snippet].self, from: data)
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .prettyPrinted
+        let data = try encoder.encode(snippets)
+        return FileWrapper(regularFileWithContents: data)
     }
 }
 
