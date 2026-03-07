@@ -10,7 +10,30 @@ import Combine
 class AppMonitor: ObservableObject {
 
     @Published var isEnabled = false {
-        didSet { isEnabled ? keyboardMonitor.start() : keyboardMonitor.stop() }
+        didSet {
+            if isEnabled {
+                if KeyboardMonitor.isAccessibilityGranted() {
+                    keyboardMonitor.start()
+                } else {
+                    KeyboardMonitor.requestAccessibilityPermission()
+                    isEnabled = false   // reset toggle; user must re-enable after granting
+                }
+            } else {
+                keyboardMonitor.stop()
+            }
+        }
+    }
+
+    @Published var hasPermission: Bool = KeyboardMonitor.isAccessibilityGranted()
+
+    func recheckPermission() {
+        hasPermission = KeyboardMonitor.isAccessibilityGranted()
+    }
+
+    func openAccessibilitySettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     private let wordBuffer: WordBuffer

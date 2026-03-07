@@ -27,8 +27,25 @@ class KeyboardMonitor {
         self.wordBuffer = wordBuffer
     }
 
+    static func isAccessibilityGranted() -> Bool {
+        AXIsProcessTrusted()
+    }
+
+    /// Triggers the system permission prompt. Returns whether access is already granted.
+    @discardableResult
+    static func requestAccessibilityPermission() -> Bool {
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+        return AXIsProcessTrustedWithOptions(options)
+    }
+
     func start() {
         guard eventTap == nil else { return }
+
+        guard Self.isAccessibilityGranted() else {
+            print("[TypeAhead] ⚠️  Accessibility permission not granted — requesting now.")
+            Self.requestAccessibilityPermission()
+            return
+        }
 
         let eventMask = CGEventMask(1 << CGEventType.keyDown.rawValue)
         let selfPtr = Unmanaged.passUnretained(self).toOpaque()

@@ -9,19 +9,48 @@ struct MenuBarView: View {
     @EnvironmentObject var appMonitor: AppMonitor
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Toggle("Enable TypeAhead", isOn: $appMonitor.isEnabled)
-                .toggleStyle(.switch)
+        VStack(alignment: .leading, spacing: 0) {
 
-            Divider()
-
-            Button("Quit TypeAhead") {
-                NSApp.terminate(nil)
+            if !appMonitor.hasPermission {
+                permissionBanner
+                Divider()
             }
-            .buttonStyle(.plain)
+
+            VStack(alignment: .leading, spacing: 10) {
+                Toggle("Enable TypeAhead", isOn: $appMonitor.isEnabled)
+                    .toggleStyle(.switch)
+                    .disabled(!appMonitor.hasPermission)
+
+                Divider()
+
+                Button("Quit TypeAhead") {
+                    NSApp.terminate(nil)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+            }
+            .padding()
+        }
+        .frame(width: 240)
+    }
+
+    private var permissionBanner: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label("Accessibility access required", systemImage: "lock.fill")
+                .font(.caption)
+                .foregroundStyle(.orange)
+
+            Button("Open System Settings…") {
+                appMonitor.openAccessibilitySettings()
+            }
+            .font(.caption)
+
+            Button("I've granted access — recheck") {
+                appMonitor.recheckPermission()
+            }
+            .font(.caption)
             .foregroundStyle(.secondary)
         }
         .padding()
-        .frame(width: 220)
     }
 }
