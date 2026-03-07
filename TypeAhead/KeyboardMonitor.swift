@@ -67,15 +67,14 @@ class KeyboardMonitor {
             },
             userInfo: selfPtr
         ) else {
-            // Tap creation failed — if we don't have permission, prompt for it
             if !Self.isAccessibilityGranted() {
-                print("[TypeAhead] Accessibility permission missing — opening prompt.")
+                print("[TypeAhead] ⚠️  Accessibility permission missing — requesting.")
                 Self.requestAccessibilityPermission()
             } else {
-                print("[TypeAhead] ⚠️  Tap creation failed despite having permission.")
-                print("[TypeAhead]    Xcode rebuild invalidated the binary signature.")
-                print("[TypeAhead]    → System Settings › Privacy & Security › Accessibility")
-                print("[TypeAhead]      toggle TypeAhead OFF then ON, then flip the toggle in the app.")
+                print("[TypeAhead] ⚠️  Tap failed despite Accessibility being granted.")
+                print("[TypeAhead]    Root cause: Input Monitoring permission is likely missing.")
+                print("[TypeAhead]    → System Settings › Privacy & Security › Input Monitoring")
+                print("[TypeAhead]      Add TypeAhead there and enable it, then retry the toggle.")
             }
             onTapStateChanged?(false)
             return

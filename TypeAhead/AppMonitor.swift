@@ -49,6 +49,12 @@ class AppMonitor: ObservableObject {
         }
     }
 
+    func openInputMonitoringSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
     // MARK: - Wiring
 
     private func setupCallbacks() {

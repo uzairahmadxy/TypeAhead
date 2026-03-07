@@ -37,6 +37,13 @@ struct MenuBarView: View {
                 .foregroundStyle(.secondary)
                 .buttonStyle(.plain)
 
+                Button("Open Input Monitoring Settings…") {
+                    appMonitor.openInputMonitoringSettings()
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .buttonStyle(.plain)
+
                 Divider()
 
                 Button("Quit TypeAhead") {
