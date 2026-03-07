@@ -132,3 +132,4 @@ struct SnippetsView: View {
         focus = .trigger
     }
 }
+
