@@ -7,7 +7,13 @@ import Foundation
 
 class WordBuffer {
     private let snippets: [String: String]
-    private var buffer = ""
+    private(set) var buffer = ""
+
+    var bufferLength: Int { buffer.count }
+
+    /// Called on the main thread whenever the match list changes.
+    /// Receives the sorted matches and the current buffer string.
+    var onMatchesChanged: (([( key: String, value: String)], String) -> Void)?
 
     init(snippets: [String: String]) {
         self.snippets = snippets
@@ -16,49 +22,64 @@ class WordBuffer {
     func process(character: Character) {
         let scalar = character.unicodeScalars.first!.value
 
-        // Backspace (DEL U+007F or BS U+0008): trim the buffer
-        if scalar == 127 || scalar == 8 {
-            if !buffer.isEmpty { buffer.removeLast() }
-            if !buffer.isEmpty { checkMatches() }
-            return
-        }
-
-        // Control characters (tab, escape, return, etc.): reset
+        // Skip our own injected Unicode characters (should already be filtered by
+        // the event tap marker, but belt-and-suspenders).
+        // Control characters reset the buffer.
         if scalar < 32 {
-            buffer = ""
+            reset()
             return
         }
 
-        // Whitespace: reset
+        // Backspace (DEL U+007F) — trim one character
+        if scalar == 127 {
+            if !buffer.isEmpty { buffer.removeLast() }
+            notifyMatches()
+            return
+        }
+
+        // Whitespace — reset
         if character.isWhitespace {
-            buffer = ""
+            reset()
             return
         }
 
-        // '@' starts a fresh word (acts as a word-boundary trigger)
+        // '@' is a word-boundary trigger: always starts a fresh word
         if character == "@" {
             buffer = "@"
-            checkMatches()
+            notifyMatches()
             return
         }
 
         buffer.append(character)
-        checkMatches()
+        notifyMatches()
     }
 
-    private func checkMatches() {
-        guard !buffer.isEmpty else { return }
+    func reset() {
+        buffer = ""
+        onMatchesChanged?([], "")
+    }
 
-        // Find snippet keys that start with the current buffer (prefix match)
-        let prefixMatches = snippets.keys.filter { $0.hasPrefix(buffer) }
+    // MARK: - Private
 
-        if !prefixMatches.isEmpty {
-            print("[TypeAhead] Buffer: '\(buffer)' — prefix matches: \(prefixMatches.sorted())")
+    private func notifyMatches() {
+        guard !buffer.isEmpty else {
+            onMatchesChanged?([], "")
+            return
         }
 
-        // Exact match: the buffer IS a snippet key
+        let matches = snippets
+            .filter { $0.key.hasPrefix(buffer) }
+            .map { (key: $0.key, value: $0.value) }
+            .sorted { $0.key < $1.key }
+
+        // Console logging (Phase 1 behaviour, still useful for debugging)
+        if !matches.isEmpty {
+            print("[TypeAhead] Buffer: '\(buffer)' — prefix matches: \(matches.map(\.key))")
+        }
         if let expansion = snippets[buffer] {
             print("[TypeAhead] ✅ Exact match: '\(buffer)' → '\(expansion)'")
         }
+
+        onMatchesChanged?(matches, buffer)
     }
 }

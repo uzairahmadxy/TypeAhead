@@ -6,8 +6,20 @@
 import AppKit
 import CoreGraphics
 
+enum SpecialKey { case tab, returnKey, escape, arrowUp, arrowDown }
+
 class KeyboardMonitor {
+
     let wordBuffer: WordBuffer
+
+    /// Called synchronously on the main thread from the event tap.
+    /// Return true to consume (drop) the event, false to pass it through.
+    var onSpecialKey: ((SpecialKey) -> Bool)?
+
+    /// Returns whether the suggestion popup is currently visible.
+    /// Read synchronously from the main-thread event tap callback.
+    var isPopupVisible: () -> Bool = { false }
+
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
 
@@ -19,37 +31,34 @@ class KeyboardMonitor {
         guard eventTap == nil else { return }
 
         let eventMask = CGEventMask(1 << CGEventType.keyDown.rawValue)
-
-        // Pass an unretained pointer to self via userInfo.
-        // KeyboardMonitor is kept alive by AppMonitor for the app's lifetime.
         let selfPtr = Unmanaged.passUnretained(self).toOpaque()
 
         guard let tap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
             place: .headInsertEventTap,
-            options: .listenOnly,
+            options: .defaultTap,          // defaultTap so we can consume Tab/Esc
             eventsOfInterest: eventMask,
-            callback: { (proxy, type, event, userInfo) -> Unmanaged<CGEvent>? in
-                guard type == .keyDown, let ptr = userInfo else { return nil }
+            callback: { (_, type, event, userInfo) -> Unmanaged<CGEvent>? in
+                guard type == .keyDown, let ptr = userInfo else {
+                    return Unmanaged.passRetained(event)
+                }
+
+                // Skip events we injected ourselves to avoid re-entrancy
+                if event.getIntegerValueField(.eventSourceUserData) == TextInjector.markerValue {
+                    return Unmanaged.passRetained(event)
+                }
 
                 let monitor = Unmanaged<KeyboardMonitor>.fromOpaque(ptr).takeUnretainedValue()
 
-                if let nsEvent = NSEvent(cgEvent: event),
-                   let chars = nsEvent.characters, !chars.isEmpty {
-                    // Dispatch to main actor since WordBuffer and logging live there
-                    DispatchQueue.main.async {
-                        for char in chars {
-                            monitor.wordBuffer.process(character: char)
-                        }
-                    }
+                // The tap fires on the main run loop thread — safe to use MainActor state.
+                return MainActor.assumeIsolated {
+                    monitor.handleEvent(event)
                 }
-                return nil
             },
             userInfo: selfPtr
         ) else {
-            print("[TypeAhead] ⚠️ Failed to create event tap.")
-            print("[TypeAhead]    Go to System Settings → Privacy & Security → Accessibility")
-            print("[TypeAhead]    and grant TypeAhead permission, then restart the app.")
+            print("[TypeAhead] ⚠️  Failed to create event tap.")
+            print("[TypeAhead]    System Settings → Privacy & Security → Accessibility → grant TypeAhead access, then relaunch.")
             return
         }
 
@@ -69,5 +78,36 @@ class KeyboardMonitor {
         }
         eventTap = nil
         print("[TypeAhead] Keyboard monitoring stopped.")
+    }
+
+    // MARK: - Private (called on main thread via MainActor.assumeIsolated)
+
+    private func handleEvent(_ event: CGEvent) -> Unmanaged<CGEvent>? {
+        let keyCode = Int(event.getIntegerValueField(.keyboardEventKeycode))
+
+        // Intercept navigation keys when the popup is visible
+        if isPopupVisible() {
+            let specialKey: SpecialKey? = switch keyCode {
+                case 0x30: .tab
+                case 0x24: .returnKey
+                case 0x35: .escape
+                case 0x7D: .arrowDown
+                case 0x7E: .arrowUp
+                default:   nil
+            }
+            if let specialKey, onSpecialKey?(specialKey) == true {
+                return nil  // consume the event
+            }
+        }
+
+        // Regular character — feed to word buffer
+        if let nsEvent = NSEvent(cgEvent: event),
+           let chars = nsEvent.characters, !chars.isEmpty {
+            for char in chars {
+                wordBuffer.process(character: char)
+            }
+        }
+
+        return Unmanaged.passRetained(event)
     }
 }
