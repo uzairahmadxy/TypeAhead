@@ -34,8 +34,8 @@ struct CursorTracker {
             rangeRef,
             &boundsRef
         ) == .success,
-              let boundsRef,
-              let axBounds = boundsRef as? AXValue else { return nil }
+              let boundsRef else { return nil }
+        let axBounds = boundsRef as! AXValue
 
         var rect = CGRect.zero
         AXValueGetValue(axBounds, .cgRect, &rect)
