@@ -36,6 +36,7 @@ class AppMonitor: ObservableObject {
     private let textInjector = TextInjector()
     private var cancellables = Set<AnyCancellable>()
     private var lastExpansionLength = 0
+    private var watchdog: AnyCancellable?
 
     init() {
         UserDefaults.standard.register(defaults: ["triggerPrefix": "@"])
@@ -48,6 +49,7 @@ class AppMonitor: ObservableObject {
         buffer.searchExpansions = UserDefaults.standard.bool(forKey: "searchExpansions")
         setupCallbacks()
         if isEnabled { keyboardMonitor.start() }
+        startWatchdog()
     }
 
     private static func storedTriggerPrefix() -> String {
@@ -65,6 +67,18 @@ class AppMonitor: ObservableObject {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent") {
             NSWorkspace.shared.open(url)
         }
+    }
+
+    // MARK: - Watchdog
+
+    private func startWatchdog() {
+        watchdog = Timer.publish(every: 5, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                guard let self, isEnabled, !tapActive else { return }
+                print("[TypeAhead] Watchdog: tap is dead — restarting...")
+                keyboardMonitor.start()
+            }
     }
 
     // MARK: - Wiring
