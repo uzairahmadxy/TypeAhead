@@ -23,6 +23,12 @@ struct TypeAheadApp: App {
         }
         .defaultSize(width: 560, height: 380)
         .defaultPosition(.center)
+
+        Window("Welcome to TypeAhead", id: "onboarding") {
+            OnboardingView()
+        }
+        .windowResizability(.contentSize)
+        .defaultPosition(.center)
     }
 }
 

@@ -45,6 +45,22 @@ class KeyboardMonitor {
         AXIsProcessTrustedWithOptions(options)
     }
 
+    static func isInputMonitoringGranted() -> Bool {
+        // Attempt a listenOnly tap — succeeds only if Input Monitoring is granted.
+        let mask = CGEventMask(1 << CGEventType.keyDown.rawValue)
+        let tap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .headInsertEventTap,
+            options: .listenOnly,
+            eventsOfInterest: mask,
+            callback: { _, _, event, _ in Unmanaged.passRetained(event) },
+            userInfo: nil
+        )
+        guard let tap else { return false }
+        CGEvent.tapEnable(tap: tap, enable: false)
+        return true
+    }
+
     // MARK: - Tap lifecycle
 
     func start() {

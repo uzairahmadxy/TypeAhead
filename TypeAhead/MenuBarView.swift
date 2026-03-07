@@ -69,6 +69,14 @@ struct MenuBarView: View {
             .padding(.vertical, 10)
         }
         .frame(width: 240)
+        .onAppear {
+            let needsOnboarding = !KeyboardMonitor.isAccessibilityGranted()
+                || !KeyboardMonitor.isInputMonitoringGranted()
+            if needsOnboarding {
+                NSApp.activate(ignoringOtherApps: true)
+                openWindow(id: "onboarding")
+            }
+        }
     }
 
     private var launchAtLoginBinding: Binding<Bool> {
