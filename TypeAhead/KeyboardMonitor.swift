@@ -46,11 +46,7 @@ class KeyboardMonitor {
     }
 
     static func isInputMonitoringGranted() -> Bool {
-        // NSEvent.addGlobalMonitorForEvents returns nil when Input Monitoring is not granted.
-        let monitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { _ in }
-        guard let monitor else { return false }
-        NSEvent.removeMonitor(monitor)
-        return true
+        CGPreflightListenEventAccess()
     }
 
     // MARK: - Tap lifecycle
