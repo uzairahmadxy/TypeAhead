@@ -102,18 +102,22 @@ struct SuggestionView: View {
     let matches: [Snippet]
     let selectedIndex: Int
 
+    private static let bg = Color(red: 0.13, green: 0.13, blue: 0.15)
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(Array(matches.enumerated()), id: \.offset) { index, snippet in
                 row(snippet: snippet, index: index)
                 if index < matches.count - 1 {
-                    Divider().padding(.horizontal, 8)
+                    Divider()
+                        .background(Color.white.opacity(0.1))
+                        .padding(.horizontal, 8)
                 }
             }
         }
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 9))
-        .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(.separator.opacity(0.6), lineWidth: 0.5))
-        .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
+        .background(Self.bg, in: RoundedRectangle(cornerRadius: 9))
+        .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.35), radius: 10, y: 4)
         .padding(4)
     }
 
@@ -123,14 +127,14 @@ struct SuggestionView: View {
         HStack(spacing: 6) {
             Text(snippet.displayName)
                 .fontWeight(.semibold)
-                .foregroundStyle(selected ? Color.white : Color.primary)
+                .foregroundStyle(Color.white)
 
             Image(systemName: "arrow.right")
                 .font(.caption2)
-                .foregroundStyle(selected ? Color.white.opacity(0.75) : Color.secondary)
+                .foregroundStyle(Color.white.opacity(0.45))
 
             Text(snippet.expansion)
-                .foregroundStyle(selected ? Color.white.opacity(0.9) : Color.secondary)
+                .foregroundStyle(Color.white.opacity(0.7))
                 .lineLimit(1)
                 .truncationMode(.tail)
 
@@ -139,12 +143,13 @@ struct SuggestionView: View {
             if index == 0 {
                 Text("⇥")
                     .font(.caption)
-                    .foregroundStyle(selected ? Color.white.opacity(0.7) : Color.secondary)
+                    .foregroundStyle(Color.white.opacity(0.4))
             }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(selected ? Color.accentColor : Color.clear, in: RoundedRectangle(cornerRadius: 6))
+        .background(selected ? Color.accentColor.opacity(0.85) : Color.white.opacity(0.08),
+                    in: RoundedRectangle(cornerRadius: 6))
         .padding(.horizontal, 4)
         .padding(.vertical, 2)
     }
