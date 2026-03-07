@@ -27,10 +27,10 @@ class SnippetStore: ObservableObject {
 
     // MARK: - Public API
 
-    func add(trigger: String, expansion: String) {
+    func add(trigger: String, name: String = "", expansion: String) {
         let t = trigger.trimmingCharacters(in: .whitespaces)
         guard !t.isEmpty, !expansion.isEmpty else { return }
-        snippets.append(Snippet(trigger: t, expansion: expansion))
+        snippets.append(Snippet(trigger: t, name: name.trimmingCharacters(in: .whitespaces), expansion: expansion))
     }
 
     func delete(_ snippet: Snippet) {
@@ -39,11 +39,6 @@ class SnippetStore: ObservableObject {
 
     func delete(at offsets: IndexSet) {
         snippets.remove(atOffsets: offsets)
-    }
-
-    var asDict: [String: String] {
-        Dictionary(snippets.map { ($0.trigger, $0.expansion) },
-                   uniquingKeysWith: { _, last in last })
     }
 
     // MARK: - Persistence

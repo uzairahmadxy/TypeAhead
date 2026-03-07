@@ -21,7 +21,6 @@ class AppMonitor: ObservableObject {
         }
     }
 
-    /// True only when the CGEventTap is actually running.
     @Published var tapActive = false
 
     let snippetStore = SnippetStore()
@@ -34,7 +33,7 @@ class AppMonitor: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
 
     init() {
-        let buffer = WordBuffer(snippets: [:])
+        let buffer = WordBuffer()
         let monitor = KeyboardMonitor(wordBuffer: buffer)
         self.wordBuffer = buffer
         self.keyboardMonitor = monitor
@@ -72,14 +71,13 @@ class AppMonitor: ObservableObject {
 
         // Keep word buffer in sync with snippet store
         snippetStore.$snippets
-            .map { [weak self] _ in self?.snippetStore.asDict ?? [:] }
-            .sink { [weak self] dict in self?.wordBuffer.updateSnippets(dict) }
+            .sink { [weak self] snippets in self?.wordBuffer.updateSnippets(snippets) }
             .store(in: &cancellables)
     }
 
     // MARK: - Popup
 
-    private func handleMatchesChanged(_ matches: [(key: String, value: String)]) {
+    private func handleMatchesChanged(_ matches: [Snippet]) {
         if matches.isEmpty {
             suggestionPanel.hide()
         } else {
@@ -97,10 +95,10 @@ class AppMonitor: ObservableObject {
     }
 
     private func acceptSuggestion() {
-        guard let match = suggestionPanel.selectedMatch else { return }
+        guard let snippet = suggestionPanel.selectedMatch else { return }
         let prefixLen = wordBuffer.bufferLength
         wordBuffer.reset()
         suggestionPanel.hide()
-        textInjector.inject(expansion: match.value, replacingPrefixOfLength: prefixLen)
+        textInjector.inject(expansion: snippet.expansion, replacingPrefixOfLength: prefixLen)
     }
 }

@@ -11,7 +11,7 @@ import SwiftUI
 final class SuggestionPanel: NSPanel {
 
     private var hostingView: NSHostingView<SuggestionView>?
-    private(set) var currentMatches: [(key: String, value: String)] = []
+    private(set) var currentMatches: [Snippet] = []
     private(set) var selectedIndex: Int = 0
 
     init() {
@@ -32,29 +32,24 @@ final class SuggestionPanel: NSPanel {
 
     // MARK: - Public API
 
-    /// Show the popup near cursorRect (top-left origin screen coordinates from AX API).
-    func show(matches: [(key: String, value: String)], near cursorRect: CGRect) {
+    func show(matches: [Snippet], near cursorRect: CGRect) {
         guard !matches.isEmpty else { hide(); return }
 
-        // Reset selection when match list changes
-        if matches.map(\.key) != currentMatches.map(\.key) {
+        if matches.map(\.id) != currentMatches.map(\.id) {
             selectedIndex = 0
         }
         currentMatches = matches
-
         updateContent()
 
         let panelSize = hostingView?.fittingSize ?? CGSize(width: 320, height: 44)
-
-        // Convert cursor rect from AX top-left origin to NSWindow bottom-left origin
         let screenH = NSScreen.main?.frame.height ?? 0
-        let cursorBottomNSY = screenH - cursorRect.maxY   // cursor bottom in NSWindow coords
+        let cursorBottomNSY = screenH - cursorRect.maxY
         let panelY = cursorBottomNSY - 6 - panelSize.height
 
         setFrame(NSRect(
             x: cursorRect.minX,
             y: panelY,
-            width: max(panelSize.width, 240),
+            width: max(panelSize.width, 260),
             height: panelSize.height
         ), display: true)
 
@@ -79,7 +74,7 @@ final class SuggestionPanel: NSPanel {
         updateContent()
     }
 
-    var selectedMatch: (key: String, value: String)? {
+    var selectedMatch: Snippet? {
         guard !currentMatches.isEmpty, selectedIndex < currentMatches.count else { return nil }
         return currentMatches[selectedIndex]
     }
@@ -101,32 +96,29 @@ final class SuggestionPanel: NSPanel {
 // MARK: - SwiftUI View
 
 struct SuggestionView: View {
-    let matches: [(key: String, value: String)]
+    let matches: [Snippet]
     let selectedIndex: Int
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            ForEach(Array(matches.enumerated()), id: \.offset) { index, match in
-                row(match: match, index: index)
+            ForEach(Array(matches.enumerated()), id: \.offset) { index, snippet in
+                row(snippet: snippet, index: index)
                 if index < matches.count - 1 {
                     Divider().padding(.horizontal, 8)
                 }
             }
         }
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 9))
-        .overlay(
-            RoundedRectangle(cornerRadius: 9)
-                .strokeBorder(.separator.opacity(0.6), lineWidth: 0.5)
-        )
+        .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(.separator.opacity(0.6), lineWidth: 0.5))
         .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
-        .padding(4)   // room for shadow
+        .padding(4)
     }
 
     @ViewBuilder
-    private func row(match: (key: String, value: String), index: Int) -> some View {
+    private func row(snippet: Snippet, index: Int) -> some View {
         let selected = index == selectedIndex
         HStack(spacing: 6) {
-            Text(match.key)
+            Text(snippet.displayName)
                 .fontWeight(.semibold)
                 .foregroundStyle(selected ? Color.white : Color.primary)
 
@@ -134,7 +126,7 @@ struct SuggestionView: View {
                 .font(.caption2)
                 .foregroundStyle(selected ? Color.white.opacity(0.75) : Color.secondary)
 
-            Text(match.value)
+            Text(snippet.expansion)
                 .foregroundStyle(selected ? Color.white.opacity(0.9) : Color.secondary)
                 .lineLimit(1)
                 .truncationMode(.tail)
@@ -149,8 +141,7 @@ struct SuggestionView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(selected ? Color.accentColor : Color.clear,
-                    in: RoundedRectangle(cornerRadius: 6))
+        .background(selected ? Color.accentColor : Color.clear, in: RoundedRectangle(cornerRadius: 6))
         .padding(.horizontal, 4)
         .padding(.vertical, 2)
     }

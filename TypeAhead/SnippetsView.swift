@@ -9,10 +9,11 @@ struct SnippetsView: View {
     @EnvironmentObject var store: SnippetStore
 
     @State private var newTrigger = ""
+    @State private var newName = ""
     @State private var newExpansion = ""
     @FocusState private var focus: FocusField?
 
-    enum FocusField { case trigger, expansion }
+    enum FocusField { case trigger, name, expansion }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -22,7 +23,7 @@ struct SnippetsView: View {
             Divider()
             addRow
         }
-        .frame(minWidth: 520, minHeight: 280)
+        .frame(minWidth: 620, minHeight: 280)
     }
 
     // MARK: - Subviews
@@ -30,15 +31,15 @@ struct SnippetsView: View {
     private var headerRow: some View {
         HStack(spacing: 0) {
             Text("Trigger")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .frame(width: 150, alignment: .leading)
+                .frame(width: 120, alignment: .leading)
                 .padding(.leading, 16)
+            Text("Name")
+                .frame(width: 120, alignment: .leading)
             Text("Expansion")
-                .font(.caption)
-                .foregroundStyle(.secondary)
             Spacer()
         }
+        .font(.caption)
+        .foregroundStyle(.secondary)
         .padding(.vertical, 7)
         .background(.bar)
     }
@@ -63,10 +64,15 @@ struct SnippetsView: View {
 
     private func snippetRow(snippet: Binding<Snippet>) -> some View {
         HStack(spacing: 10) {
-            TextField("trigger", text: snippet.trigger)
+            TextField("@trigger", text: snippet.trigger)
                 .textFieldStyle(.plain)
                 .font(.system(.body, design: .monospaced))
-                .frame(width: 150)
+                .frame(width: 120)
+
+            TextField("name (optional)", text: snippet.name)
+                .textFieldStyle(.plain)
+                .foregroundStyle(.secondary)
+                .frame(width: 120)
 
             Text("→")
                 .foregroundStyle(.secondary)
@@ -92,8 +98,14 @@ struct SnippetsView: View {
             TextField("@trigger", text: $newTrigger)
                 .textFieldStyle(.roundedBorder)
                 .font(.system(.body, design: .monospaced))
-                .frame(width: 150)
+                .frame(width: 120)
                 .focused($focus, equals: .trigger)
+                .onSubmit { focus = .name }
+
+            TextField("name (optional)", text: $newName)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 120)
+                .focused($focus, equals: .name)
                 .onSubmit { focus = .expansion }
 
             Text("→")
@@ -113,8 +125,9 @@ struct SnippetsView: View {
     // MARK: - Actions
 
     private func commitAdd() {
-        store.add(trigger: newTrigger, expansion: newExpansion)
+        store.add(trigger: newTrigger, name: newName, expansion: newExpansion)
         newTrigger = ""
+        newName = ""
         newExpansion = ""
         focus = .trigger
     }

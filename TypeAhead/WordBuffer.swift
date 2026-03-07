@@ -6,20 +6,19 @@
 import Foundation
 
 class WordBuffer {
-    private var snippets: [String: String]
+    private var snippets: [Snippet] = []
     private(set) var buffer = ""
 
     var bufferLength: Int { buffer.count }
 
     /// Called on the main thread whenever the match list changes.
-    /// Receives the sorted matches and the current buffer string.
-    var onMatchesChanged: (([( key: String, value: String)], String) -> Void)?
+    var onMatchesChanged: (([Snippet], String) -> Void)?
 
-    init(snippets: [String: String]) {
+    init(snippets: [Snippet] = []) {
         self.snippets = snippets
     }
 
-    func updateSnippets(_ snippets: [String: String]) {
+    func updateSnippets(_ snippets: [Snippet]) {
         self.snippets = snippets
         reset()
     }
@@ -27,32 +26,19 @@ class WordBuffer {
     func process(character: Character) {
         let scalar = character.unicodeScalars.first!.value
 
-        // Skip our own injected Unicode characters (should already be filtered by
-        // the event tap marker, but belt-and-suspenders).
-        // Control characters reset the buffer.
-        if scalar < 32 {
-            reset()
-            return
+        if scalar < 32 {        // control characters
+            reset(); return
         }
-
-        // Backspace (DEL U+007F) — trim one character
-        if scalar == 127 {
+        if scalar == 127 {      // backspace
             if !buffer.isEmpty { buffer.removeLast() }
-            notifyMatches()
-            return
+            notifyMatches(); return
         }
-
-        // Whitespace — reset
         if character.isWhitespace {
-            reset()
-            return
+            reset(); return
         }
-
-        // '@' is a word-boundary trigger: always starts a fresh word
-        if character == "@" {
+        if character == "@" {   // word-boundary trigger
             buffer = "@"
-            notifyMatches()
-            return
+            notifyMatches(); return
         }
 
         buffer.append(character)
@@ -67,22 +53,15 @@ class WordBuffer {
     // MARK: - Private
 
     private func notifyMatches() {
-        guard !buffer.isEmpty else {
-            onMatchesChanged?([], "")
-            return
-        }
+        guard !buffer.isEmpty else { onMatchesChanged?([], ""); return }
 
+        // A snippet matches if its trigger starts with what the user has typed so far.
         let matches = snippets
-            .filter { $0.key.hasPrefix(buffer) }
-            .map { (key: $0.key, value: $0.value) }
-            .sorted { $0.key < $1.key }
+            .filter { $0.trigger.hasPrefix(buffer) }
+            .sorted { $0.trigger == $1.trigger ? $0.name < $1.name : $0.trigger < $1.trigger }
 
-        // Console logging (Phase 1 behaviour, still useful for debugging)
         if !matches.isEmpty {
-            print("[TypeAhead] Buffer: '\(buffer)' — prefix matches: \(matches.map(\.key))")
-        }
-        if let expansion = snippets[buffer] {
-            print("[TypeAhead] ✅ Exact match: '\(buffer)' → '\(expansion)'")
+            print("[TypeAhead] Buffer: '\(buffer)' — \(matches.count) match(es): \(matches.map { "\($0.trigger)/\($0.displayName)" })")
         }
 
         onMatchesChanged?(matches, buffer)
