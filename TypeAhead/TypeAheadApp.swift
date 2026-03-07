@@ -11,7 +11,7 @@ struct TypeAheadApp: App {
     @StateObject private var appMonitor = AppMonitor()
 
     var body: some Scene {
-        MenuBarExtra("TypeAhead", systemImage: "keyboard") {
+        MenuBarExtra("TA") {
             MenuBarView()
                 .environmentObject(appMonitor)
         }
