@@ -74,6 +74,11 @@ class KeyboardMonitor {
             },
             userInfo: selfPtr
         ) else {
+            print("[TypeAhead] ⚠️  Failed to create event tap (permission granted but tap refused).")
+            print("[TypeAhead]    After a Xcode rebuild the binary signature changes and macOS revokes the tap.")
+            print("[TypeAhead]    Fix: System Settings → Privacy & Security → Accessibility →")
+            print("[TypeAhead]         toggle TypeAhead OFF then back ON, then re-enable the toggle in the app.")
+            // Legacy message kept for grep-ability:
             print("[TypeAhead] ⚠️  Failed to create event tap.")
             print("[TypeAhead]    System Settings → Privacy & Security → Accessibility → grant TypeAhead access, then relaunch.")
             return
