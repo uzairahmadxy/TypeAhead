@@ -9,8 +9,12 @@ import Combine
 @MainActor
 class AppMonitor: ObservableObject {
 
-    @Published var isEnabled = false {
+    @Published var isEnabled = {
+        UserDefaults.standard.register(defaults: ["isEnabled": true])
+        return UserDefaults.standard.bool(forKey: "isEnabled")
+    }() {
         didSet {
+            UserDefaults.standard.set(isEnabled, forKey: "isEnabled")
             if isEnabled {
                 keyboardMonitor.start()
             } else {
@@ -38,6 +42,8 @@ class AppMonitor: ObservableObject {
         self.wordBuffer = buffer
         self.keyboardMonitor = monitor
         setupCallbacks()
+        // didSet doesn't fire during init, so kick start manually if saved state is enabled
+        if isEnabled { keyboardMonitor.start() }
     }
 
     func openAccessibilitySettings() {
