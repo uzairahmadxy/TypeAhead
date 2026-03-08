@@ -14,15 +14,29 @@ struct SnippetsView: View {
     @State private var newTrigger = ""
     @State private var newName = ""
     @State private var newExpansion = ""
+    @State private var searchText = ""
     @FocusState private var focus: FocusField?
     @State private var showingImporter = false
     @State private var showingExporter = false
 
     enum FocusField { case trigger, name, expansion }
 
+    private var filteredIndices: [Int] {
+        guard !searchText.isEmpty else { return Array(store.snippets.indices) }
+        let q = searchText.lowercased()
+        return store.snippets.indices.filter { i in
+            let s = store.snippets[i]
+            return s.trigger.lowercased().contains(q)
+                || s.name.lowercased().contains(q)
+                || s.expansion.lowercased().contains(q)
+        }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             headerRow
+            Divider()
+            searchBar
             Divider()
             snippetList
             Divider()
@@ -61,6 +75,26 @@ struct SnippetsView: View {
 
     // MARK: - Subviews
 
+    private var searchBar: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+            TextField("Search snippets…", text: $searchText)
+                .textFieldStyle(.plain)
+            if !searchText.isEmpty {
+                Button {
+                    searchText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+    }
+
     private var headerRow: some View {
         HStack(spacing: 0) {
             Text("Trigger")
@@ -79,18 +113,27 @@ struct SnippetsView: View {
 
     @ViewBuilder
     private var snippetList: some View {
+        let indices = filteredIndices
         if store.snippets.isEmpty {
             Spacer()
             Text("No snippets yet — add one below.")
                 .foregroundStyle(.secondary)
             Spacer()
+        } else if indices.isEmpty {
+            Spacer()
+            Text("No results for \"\(searchText)\".")
+                .foregroundStyle(.secondary)
+            Spacer()
         } else {
             List {
-                ForEach($store.snippets) { $snippet in
-                    snippetRow(snippet: $snippet)
+                ForEach(indices, id: \.self) { i in
+                    snippetRow(snippet: $store.snippets[i])
                 }
-                .onDelete { store.delete(at: $0) }
-                .onMove { store.move(from: $0, to: $1) }
+                .onDelete { offsets in
+                    let realIndices = offsets.map { indices[$0] }
+                    realIndices.sorted(by: >).forEach { store.delete(at: IndexSet(integer: $0)) }
+                }
+                .onMove(perform: searchText.isEmpty ? { store.move(from: $0, to: $1) } : nil)
             }
             .listStyle(.plain)
         }
@@ -103,7 +146,7 @@ struct SnippetsView: View {
                 .font(.system(.body, design: .monospaced))
                 .frame(width: 120)
 
-            TextField("name (optional)", text: snippet.name)
+            TextField("(optional)", text: snippet.name)
                 .textFieldStyle(.plain)
                 .foregroundStyle(.secondary)
                 .frame(width: 120)
@@ -129,14 +172,14 @@ struct SnippetsView: View {
 
     private var addRow: some View {
         HStack(spacing: 10) {
-            TextField("@trigger", text: $newTrigger)
+            TextField("trigger", text: $newTrigger)
                 .textFieldStyle(.roundedBorder)
                 .font(.system(.body, design: .monospaced))
                 .frame(width: 120)
                 .focused($focus, equals: .trigger)
                 .onSubmit { focus = .name }
 
-            TextField("name (optional)", text: $newName)
+            TextField("(optional)", text: $newName)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 120)
                 .focused($focus, equals: .name)
