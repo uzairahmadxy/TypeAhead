@@ -72,9 +72,9 @@ struct SnippetsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            headerRow
-            Divider()
             searchBar
+            Divider()
+            headerRow
             Divider()
             snippetList
             Divider()
