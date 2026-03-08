@@ -301,7 +301,7 @@ struct SnippetsView: View {
 
             TextEditor(text: $newExpansion)
                 .font(.body)
-                .frame(minHeight: 28, maxHeight: 80)
+                .frame(minHeight: 22, maxHeight: 80)
                 .clipShape(RoundedRectangle(cornerRadius: 6))
                 .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color(nsColor: .separatorColor)))
                 .focused($focus, equals: .expansion)
