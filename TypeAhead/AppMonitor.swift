@@ -35,15 +35,32 @@ class AppMonitor: ObservableObject {
     private let cursorTracker = CursorTracker()
     private let textInjector = TextInjector()
     private var cancellables = Set<AnyCancellable>()
+    private var lastExpansionLength = 0
+    private var watchdog: AnyCancellable?
 
     init() {
+        UserDefaults.standard.register(defaults: [
+            "triggerPrefix": "//",
+            "showOnPrefix": true,
+            "searchExpansions": true,
+            "sortByRecency": false
+        ])
         let buffer = WordBuffer()
         let monitor = KeyboardMonitor(wordBuffer: buffer)
         self.wordBuffer = buffer
         self.keyboardMonitor = monitor
+        buffer.triggerPrefix = Self.storedTriggerPrefix()
+        buffer.showOnPrefix = UserDefaults.standard.bool(forKey: "showOnPrefix")
+        buffer.searchExpansions = UserDefaults.standard.bool(forKey: "searchExpansions")
+        buffer.sortByRecency = UserDefaults.standard.bool(forKey: "sortByRecency")
         setupCallbacks()
-        // didSet doesn't fire during init, so kick start manually if saved state is enabled
         if isEnabled { keyboardMonitor.start() }
+        startWatchdog()
+    }
+
+    private static func storedTriggerPrefix() -> String {
+        let raw = UserDefaults.standard.string(forKey: "triggerPrefix") ?? "//"
+        return raw.isEmpty ? "//" : raw
     }
 
     func openAccessibilitySettings() {
@@ -58,11 +75,31 @@ class AppMonitor: ObservableObject {
         }
     }
 
+    // MARK: - Watchdog
+
+    private func startWatchdog() {
+        watchdog = Timer.publish(every: 5, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                guard let self, isEnabled, !tapActive else { return }
+                print("[TypeAhead] Watchdog: tap is dead — restarting...")
+                keyboardMonitor.start()
+            }
+    }
+
     // MARK: - Wiring
 
     private func setupCallbacks() {
-        wordBuffer.onMatchesChanged = { [weak self] matches, _ in
+        wordBuffer.onMatchesChanged = { [weak self] matches, buffer in
+            if !buffer.isEmpty { self?.lastExpansionLength = 0 }
             self?.handleMatchesChanged(matches)
+        }
+        keyboardMonitor.onBackspace = { [weak self] in
+            guard let self, lastExpansionLength > 0 else { return false }
+            let len = lastExpansionLength
+            lastExpansionLength = 0
+            textInjector.inject(expansion: "", replacingPrefixOfLength: len)
+            return true
         }
         keyboardMonitor.isPopupVisible = { [weak self] in
             self?.suggestionPanel.isVisible ?? false
@@ -79,11 +116,42 @@ class AppMonitor: ObservableObject {
         snippetStore.$snippets
             .sink { [weak self] snippets in self?.wordBuffer.updateSnippets(snippets) }
             .store(in: &cancellables)
+
+        // Reset buffer when any of our windows gains focus (e.g. Manage Snippets opens)
+        NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.wordBuffer.reset()
+                self?.suggestionPanel.hide()
+            }
+            .store(in: &cancellables)
+
+        // Sync trigger prefix from UserDefaults whenever it changes (e.g. from SnippetsView)
+        NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                let prefix = Self.storedTriggerPrefix()
+                if wordBuffer.triggerPrefix != prefix {
+                    wordBuffer.triggerPrefix = prefix
+                    wordBuffer.reset()
+                    print("[TypeAhead] Trigger prefix updated to '\(prefix)'")
+                }
+                wordBuffer.showOnPrefix = UserDefaults.standard.bool(forKey: "showOnPrefix")
+                wordBuffer.searchExpansions = UserDefaults.standard.bool(forKey: "searchExpansions")
+                wordBuffer.sortByRecency = UserDefaults.standard.bool(forKey: "sortByRecency")
+            }
+            .store(in: &cancellables)
     }
 
     // MARK: - Popup
 
     private func handleMatchesChanged(_ matches: [Snippet]) {
+        // Suppress popup when one of our own windows is focused (e.g. Manage Snippets)
+        if NSApp.keyWindow != nil {
+            suggestionPanel.hide()
+            return
+        }
         if matches.isEmpty {
             suggestionPanel.hide()
         } else {
@@ -106,5 +174,7 @@ class AppMonitor: ObservableObject {
         wordBuffer.reset()
         suggestionPanel.hide()
         textInjector.inject(expansion: snippet.expansion, replacingPrefixOfLength: prefixLen)
+        // Record expansion length so the next backspace can undo it
+        lastExpansionLength = snippet.expansion.count
     }
 }

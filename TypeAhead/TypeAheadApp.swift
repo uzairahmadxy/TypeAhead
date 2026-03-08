@@ -11,7 +11,7 @@ struct TypeAheadApp: App {
     @StateObject private var appMonitor = AppMonitor()
 
     var body: some Scene {
-        MenuBarExtra("TypeAhead", systemImage: "keyboard") {
+        MenuBarExtra("TA") {
             MenuBarView()
                 .environmentObject(appMonitor)
         }
@@ -22,6 +22,12 @@ struct TypeAheadApp: App {
                 .environmentObject(appMonitor.snippetStore)
         }
         .defaultSize(width: 560, height: 380)
+        .defaultPosition(.center)
+
+        Window("Welcome to TypeAhead", id: "onboarding") {
+            OnboardingView()
+        }
+        .windowResizability(.contentSize)
         .defaultPosition(.center)
     }
 }

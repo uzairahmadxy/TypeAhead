@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import ServiceManagement
 
 struct MenuBarView: View {
     @EnvironmentObject var appMonitor: AppMonitor
@@ -29,6 +30,9 @@ struct MenuBarView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 Toggle("Enable TypeAhead", isOn: $appMonitor.isEnabled)
+                    .toggleStyle(.switch)
+
+                Toggle("Launch at Login", isOn: launchAtLoginBinding)
                     .toggleStyle(.switch)
 
                 Button("Manage Snippets…") {
@@ -65,6 +69,31 @@ struct MenuBarView: View {
             .padding(.vertical, 10)
         }
         .frame(width: 240)
+        .onAppear { checkAndOpenOnboarding() }
+        .onChange(of: appMonitor.tapActive) {
+            if !appMonitor.tapActive && appMonitor.isEnabled {
+                checkAndOpenOnboarding()
+            }
+        }
+    }
+
+    private func checkAndOpenOnboarding() {
+        let needsOnboarding = !KeyboardMonitor.isAccessibilityGranted()
+            || !KeyboardMonitor.isInputMonitoringGranted()
+        if needsOnboarding {
+            NSApp.activate(ignoringOtherApps: true)
+            openWindow(id: "onboarding")
+        }
+    }
+
+    private var launchAtLoginBinding: Binding<Bool> {
+        Binding(
+            get: { SMAppService.mainApp.status == .enabled },
+            set: { enabled in
+                if enabled { try? SMAppService.mainApp.register() }
+                else { try? SMAppService.mainApp.unregister() }
+            }
+        )
     }
 
     private var statusColor: Color {

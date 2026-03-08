@@ -22,6 +22,9 @@ class KeyboardMonitor {
     /// Called when the tap is successfully created or torn down.
     var onTapStateChanged: ((Bool) -> Void)?
 
+    /// Called on backspace. Return true to consume the event (undo last expansion).
+    var onBackspace: (() -> Bool)?
+
     var isTapActive: Bool { eventTap != nil }
 
     private var eventTap: CFMachPort?
@@ -40,6 +43,10 @@ class KeyboardMonitor {
     static func requestAccessibilityPermission() {
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
         AXIsProcessTrustedWithOptions(options)
+    }
+
+    static func isInputMonitoringGranted() -> Bool {
+        CGPreflightListenEventAccess()
     }
 
     // MARK: - Tap lifecycle
@@ -117,6 +124,11 @@ class KeyboardMonitor {
             if let specialKey, onSpecialKey?(specialKey) == true {
                 return nil
             }
+        }
+
+        // Backspace: offer to undo the last expansion before normal processing
+        if keyCode == 0x33, onBackspace?() == true {
+            return nil
         }
 
         if let nsEvent = NSEvent(cgEvent: event),
