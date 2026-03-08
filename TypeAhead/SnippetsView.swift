@@ -250,8 +250,9 @@ struct SnippetsView: View {
             Text("→")
                 .foregroundStyle(.secondary)
 
-            TextField("expansion", text: snippet.expansion)
+            TextField("expansion", text: snippet.expansion, axis: .vertical)
                 .textFieldStyle(.plain)
+                .lineLimit(1...5)
 
             Button {
                 snippet.requiresExplicitTrigger.wrappedValue.toggle()
@@ -296,8 +297,9 @@ struct SnippetsView: View {
             Text("→")
                 .foregroundStyle(.secondary)
 
-            TextField("expansion text", text: $newExpansion)
+            TextField("expansion text", text: $newExpansion, axis: .vertical)
                 .textFieldStyle(.roundedBorder)
+                .lineLimit(1...5)
                 .focused($focus, equals: .expansion)
                 .onSubmit { commitAdd() }
 
