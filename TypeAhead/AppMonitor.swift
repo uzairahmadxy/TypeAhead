@@ -115,6 +115,15 @@ class AppMonitor: ObservableObject {
             .sink { [weak self] snippets in self?.wordBuffer.updateSnippets(snippets) }
             .store(in: &cancellables)
 
+        // Reset buffer when any of our windows gains focus (e.g. Manage Snippets opens)
+        NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.wordBuffer.reset()
+                self?.suggestionPanel.hide()
+            }
+            .store(in: &cancellables)
+
         // Sync trigger prefix from UserDefaults whenever it changes (e.g. from SnippetsView)
         NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
             .receive(on: DispatchQueue.main)
@@ -135,6 +144,11 @@ class AppMonitor: ObservableObject {
     // MARK: - Popup
 
     private func handleMatchesChanged(_ matches: [Snippet]) {
+        // Suppress popup when one of our own windows is focused (e.g. Manage Snippets)
+        if NSApp.keyWindow != nil {
+            suggestionPanel.hide()
+            return
+        }
         if matches.isEmpty {
             suggestionPanel.hide()
         } else {
