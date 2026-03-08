@@ -61,7 +61,10 @@ class WordBuffer {
     // MARK: - Private
 
     private func snippetMatches(_ snippet: Snippet, query: String) -> Bool {
-        if query.isEmpty { return true } // showOnPrefix case — show all
+        if query.isEmpty {
+            // showOnPrefix case — show all except snippets that require an explicit trigger
+            return !snippet.requiresExplicitTrigger
+        }
         let trigger = String(snippet.trigger.drop(while: { !$0.isLetter && !$0.isNumber }))
         if trigger.lowercased().hasPrefix(query.lowercased()) { return true }
         if searchExpansions && snippet.expansion.localizedCaseInsensitiveContains(query) { return true }

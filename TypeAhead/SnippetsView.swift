@@ -213,6 +213,17 @@ struct SnippetsView: View {
                 .textFieldStyle(.plain)
 
             Button {
+                snippet.requiresExplicitTrigger.wrappedValue.toggle()
+            } label: {
+                Image(systemName: snippet.requiresExplicitTrigger.wrappedValue ? "eye.slash" : "eye")
+                    .foregroundStyle(snippet.requiresExplicitTrigger.wrappedValue ? .primary : .tertiary)
+            }
+            .buttonStyle(.plain)
+            .help(snippet.requiresExplicitTrigger.wrappedValue
+                ? "Hidden from show-all list (requires explicit trigger)"
+                : "Visible in show-all list")
+
+            Button {
                 store.delete(snippet.wrappedValue)
             } label: {
                 Image(systemName: "trash")

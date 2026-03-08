@@ -10,12 +10,16 @@ struct Snippet: Identifiable, Codable, Equatable {
     var trigger: String
     var name: String        // optional label shown in the popup; empty = use trigger
     var expansion: String
+    /// When true, this snippet is excluded from the "show all on prefix" list.
+    /// It only appears once the user has started typing its trigger explicitly.
+    var requiresExplicitTrigger: Bool = false
 
-    init(id: UUID = UUID(), trigger: String, name: String = "", expansion: String) {
+    init(id: UUID = UUID(), trigger: String, name: String = "", expansion: String, requiresExplicitTrigger: Bool = false) {
         self.id = id
         self.trigger = trigger
         self.name = name
         self.expansion = expansion
+        self.requiresExplicitTrigger = requiresExplicitTrigger
     }
 
     /// The label shown in the suggestion popup.
