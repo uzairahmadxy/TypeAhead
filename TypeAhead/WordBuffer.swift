@@ -80,14 +80,21 @@ class WordBuffer {
         let query = String(buffer.dropFirst(triggerPrefix.count))
         guard !query.isEmpty || showOnPrefix else { onMatchesChanged?([], ""); return }
 
-        let matches = snippets
-            .filter { snippetMatches($0, query: query) }
-            .sorted {
+        let indexed = Array(snippets.enumerated())
+        let matches = indexed
+            .filter { snippetMatches($0.element, query: query) }
+            .sorted { a, b in
                 if sortByRecency {
-                    return $0.createdAt > $1.createdAt
+                    if a.element.createdAt != b.element.createdAt {
+                        return a.element.createdAt > b.element.createdAt
+                    }
+                    return a.offset < b.offset  // stable tiebreaker: preserve insertion order
                 }
-                return $0.trigger == $1.trigger ? $0.name < $1.name : $0.trigger < $1.trigger
+                let t0 = a.element.trigger, t1 = b.element.trigger
+                if t0 != t1 { return t0.localizedCaseInsensitiveCompare(t1) == .orderedAscending }
+                return a.element.name.localizedCaseInsensitiveCompare(b.element.name) == .orderedAscending
             }
+            .map(\.element)
 
         if !matches.isEmpty {
             print("[TypeAhead] Buffer: '\(buffer)' — \(matches.count) match(es): \(matches.map { "\($0.trigger)/\($0.displayName)" })")

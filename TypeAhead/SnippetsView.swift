@@ -250,8 +250,23 @@ struct SnippetsView: View {
             Text("→")
                 .foregroundStyle(.secondary)
 
-            TextField("expansion", text: snippet.expansion)
-                .textFieldStyle(.plain)
+            TextEditor(text: snippet.expansion)
+                .font(.body)
+                .scrollContentBackground(.hidden)
+                .frame(minHeight: 20, maxHeight: 80)
+                .padding(.vertical, -4)
+
+            Button {
+                snippet.requiresExplicitTrigger.wrappedValue.toggle()
+            } label: {
+                Image(systemName: snippet.requiresExplicitTrigger.wrappedValue ? "eye.slash" : "eye")
+                    .foregroundStyle(snippet.requiresExplicitTrigger.wrappedValue ? .primary : .tertiary)
+            }
+            .buttonStyle(.plain)
+            .frame(width: 96)
+            .help(snippet.requiresExplicitTrigger.wrappedValue
+                ? "Only shown when trigger is typed explicitly"
+                : "Shown in show-all list when prefix is typed")
 
             Button {
                 snippet.requiresExplicitTrigger.wrappedValue.toggle()
@@ -296,10 +311,10 @@ struct SnippetsView: View {
             Text("→")
                 .foregroundStyle(.secondary)
 
-            TextField("expansion text", text: $newExpansion)
+            TextField("expansion text", text: $newExpansion, axis: .vertical)
                 .textFieldStyle(.roundedBorder)
+                .lineLimit(1...4)
                 .focused($focus, equals: .expansion)
-                .onSubmit { commitAdd() }
 
             Button(action: commitAdd) {
                 Image(systemName: "plus.circle.fill")

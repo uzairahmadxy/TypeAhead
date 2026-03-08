@@ -67,7 +67,12 @@ class SnippetStore: ObservableObject {
 
     private func load() {
         if let data = try? Data(contentsOf: fileURL),
-           let saved = try? JSONDecoder().decode([Snippet].self, from: data) {
+           var saved = try? JSONDecoder().decode([Snippet].self, from: data) {
+            // Snippets saved before createdAt was added decode to .distantPast.
+            // Assign them stable sequential timestamps so recency sort works.
+            for i in saved.indices where saved[i].createdAt == .distantPast {
+                saved[i].createdAt = Date(timeIntervalSinceReferenceDate: TimeInterval(i))
+            }
             snippets = saved
         } else {
             snippets = Self.defaultSnippets

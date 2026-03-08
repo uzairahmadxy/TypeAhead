@@ -14,7 +14,8 @@ struct Snippet: Identifiable, Codable, Equatable {
     /// It only appears once the user has started typing its trigger explicitly.
     var requiresExplicitTrigger: Bool = false
     /// When this snippet was created — used for recency sorting.
-    var createdAt: Date = Date()
+    /// Defaults to .distantPast so snippets decoded without this field are detectable.
+    var createdAt: Date = .distantPast
 
     init(id: UUID = UUID(), trigger: String, name: String = "", expansion: String, requiresExplicitTrigger: Bool = false) {
         self.id = id
