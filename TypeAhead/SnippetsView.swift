@@ -22,7 +22,7 @@ struct SnippetsView: View {
     enum FocusField { case trigger, name, expansion }
     enum SortKey { case trigger, name, expansion }
 
-    @State private var sortKey: SortKey? = nil
+    @State private var sortKey: SortKey? = .trigger
     @State private var sortAscending = true
 
     private var displayedIndices: [Int] {
