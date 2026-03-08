@@ -13,6 +13,7 @@ Type a trigger like `//email` and TypeAhead instantly replaces it with your full
 - **Snippet management** — add, edit, delete, reorder, search, and sort snippets in one window
 - **Sortable columns** — click Trigger, Name, or Expansion header to sort; click again to toggle direction
 - **Search bar** — filter snippets instantly by trigger, name, or expansion text
+- **Alphabetical / recency toggle** — switch the list and popup order between A–Z and most recently added
 - **Exact trigger** — mark individual snippets to only appear when their trigger is typed explicitly, hiding them from the show-all list
 - **Import / Export** — back up or share your snippet library as JSON
 - **Configurable trigger prefix** — default `//`, change to anything you like
@@ -65,12 +66,14 @@ Type the trigger in any text field. A popup appears near your cursor — use **�
 
 ### Sorting & searching
 
+- Use the **search bar** at the top to filter by trigger, name, or expansion
 - Click any column header (**Trigger**, **Name**, **Expansion**) to sort; click again to reverse
-- Use the search bar to filter by any field — drag reorder is disabled while a filter or sort is active
+- Use the **ABC / clock toggle** in the search bar to switch the base order between A–Z and most recently added — this applies to both the snippet list and the suggestion popup
+- Drag reorder is available when no search or column sort is active
 
 ### Exact trigger
 
-Each snippet has an **eye** icon in the row. Click it to toggle **Exact trigger** mode (eye-slash):
+Each snippet row has an **eye** icon. Click it to toggle **Exact trigger** mode:
 
 - **Eye (default)** — snippet appears in the show-all list when you type the prefix alone
 - **Eye-slash** — snippet is hidden from the show-all list; it only appears once you start typing its trigger explicitly
