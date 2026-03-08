@@ -77,13 +77,13 @@ class SnippetStore: ObservableObject {
 
     private static let defaultSnippets: [Snippet] = [
         Snippet(
-            trigger: "//email",
+            trigger: "email",
             name: "My Email",
             expansion: "myemail@domain.com",
             requiresExplicitTrigger: true
         ),
         Snippet(
-            trigger: "//omw",
+            trigger: "omw",
             name: "On My Way",
             expansion: "On My Way!"
         ),
