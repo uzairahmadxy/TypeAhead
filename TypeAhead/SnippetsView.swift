@@ -173,7 +173,7 @@ struct SnippetsView: View {
     private var addRow: some View {
         HStack(spacing: 10) {
             Image(systemName: "plus.circle.fill")
-                .foregroundStyle(.accent)
+                .foregroundStyle(Color.accentColor)
                 .imageScale(.medium)
 
             TextField("trigger", text: $newTrigger)
