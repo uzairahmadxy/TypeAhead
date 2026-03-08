@@ -20,23 +20,61 @@ struct SnippetsView: View {
     @State private var showingExporter = false
 
     enum FocusField { case trigger, name, expansion }
+    enum SortKey { case trigger, name, expansion }
 
-    private var filteredIndices: [Int] {
-        guard !searchText.isEmpty else { return Array(store.snippets.indices) }
-        let q = searchText.lowercased()
-        return store.snippets.indices.filter { i in
-            let s = store.snippets[i]
-            return s.trigger.lowercased().contains(q)
-                || s.name.lowercased().contains(q)
-                || s.expansion.lowercased().contains(q)
+    @State private var sortKey: SortKey? = .trigger
+    @State private var sortAscending = true
+
+    private var displayedIndices: [Int] {
+        // Filter
+        var indices: [Int]
+        if searchText.isEmpty {
+            indices = Array(store.snippets.indices)
+        } else {
+            let q = searchText.lowercased()
+            indices = store.snippets.indices.filter { i in
+                let s = store.snippets[i]
+                return s.trigger.lowercased().contains(q)
+                    || s.name.lowercased().contains(q)
+                    || s.expansion.lowercased().contains(q)
+            }
         }
+        // Sort
+        guard let key = sortKey else { return indices }
+        return indices.sorted {
+            let a = store.snippets[$0]
+            let b = store.snippets[$1]
+            let lhs: String
+            let rhs: String
+            switch key {
+            case .trigger:   lhs = a.trigger;   rhs = b.trigger
+            case .name:      lhs = a.name;       rhs = b.name
+            case .expansion: lhs = a.expansion;  rhs = b.expansion
+            }
+            return sortAscending ? lhs.localizedCaseInsensitiveCompare(rhs) == .orderedAscending
+                                 : lhs.localizedCaseInsensitiveCompare(rhs) == .orderedDescending
+        }
+    }
+
+    private func toggleSort(_ key: SortKey) {
+        if sortKey == key {
+            sortAscending.toggle()
+        } else {
+            sortKey = key
+            sortAscending = true
+        }
+    }
+
+    private func sortIndicator(_ key: SortKey) -> String? {
+        guard sortKey == key else { return nil }
+        return sortAscending ? "chevron.up" : "chevron.down"
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            headerRow
-            Divider()
             searchBar
+            Divider()
+            headerRow
             Divider()
             snippetList
             Divider()
@@ -97,23 +135,40 @@ struct SnippetsView: View {
 
     private var headerRow: some View {
         HStack(spacing: 0) {
-            Text("Trigger")
+            sortHeaderButton("Trigger", key: .trigger)
                 .frame(width: 120, alignment: .leading)
                 .padding(.leading, 16)
-            Text("Name")
+            sortHeaderButton("Name", key: .name)
                 .frame(width: 120, alignment: .leading)
-            Text("Expansion")
+            sortHeaderButton("Expansion", key: .expansion)
             Spacer()
         }
         .font(.caption)
-        .foregroundStyle(.secondary)
         .padding(.vertical, 7)
         .background(.bar)
     }
 
+    private func sortHeaderButton(_ label: String, key: SortKey) -> some View {
+        Button {
+            toggleSort(key)
+        } label: {
+            HStack(spacing: 3) {
+                Text(label)
+                    .foregroundStyle(sortKey == key ? .primary : .secondary)
+                if let icon = sortIndicator(key) {
+                    Image(systemName: icon)
+                        .foregroundStyle(.secondary)
+                        .imageScale(.small)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
     @ViewBuilder
     private var snippetList: some View {
-        let indices = filteredIndices
+        let indices = displayedIndices
+        let canReorder = searchText.isEmpty && sortKey == nil
         if store.snippets.isEmpty {
             Spacer()
             Text("No snippets yet — add one below.")
@@ -133,7 +188,7 @@ struct SnippetsView: View {
                     let realIndices = offsets.map { indices[$0] }
                     realIndices.sorted(by: >).forEach { store.delete(at: IndexSet(integer: $0)) }
                 }
-                .onMove(perform: searchText.isEmpty ? { store.move(from: $0, to: $1) } : nil)
+                .onMove(perform: canReorder ? { store.move(from: $0, to: $1) } : nil)
             }
             .listStyle(.plain)
         }
