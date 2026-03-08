@@ -124,26 +124,30 @@ struct SuggestionView: View {
     @ViewBuilder
     private func row(snippet: Snippet, index: Int) -> some View {
         let selected = index == selectedIndex
-        HStack(spacing: 6) {
+        HStack(alignment: .top, spacing: 6) {
             Text(snippet.displayName)
                 .fontWeight(.semibold)
                 .foregroundStyle(Color.white)
+                .fixedSize()
 
             Image(systemName: "arrow.right")
                 .font(.caption2)
                 .foregroundStyle(Color.white.opacity(0.45))
+                .padding(.top, 3)
 
-            Text(snippet.expansion)
-                .foregroundStyle(Color.white.opacity(0.7))
-                .lineLimit(1)
-                .truncationMode(.tail)
-
-            Spacer()
+            ScrollView(.vertical, showsIndicators: true) {
+                Text(snippet.expansion)
+                    .foregroundStyle(Color.white.opacity(0.7))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxHeight: 72) // ~4 lines
 
             if index == 0 {
                 Text("⇥")
                     .font(.caption)
                     .foregroundStyle(Color.white.opacity(0.4))
+                    .padding(.top, 1)
             }
         }
         .padding(.horizontal, 12)
