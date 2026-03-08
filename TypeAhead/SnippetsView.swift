@@ -248,10 +248,17 @@ struct SnippetsView: View {
                 .focused($focus, equals: .expansion)
                 .onSubmit { commitAdd() }
 
-            Button("Add", action: commitAdd)
-                .disabled(newTrigger.trimmingCharacters(in: .whitespaces).isEmpty || newExpansion.isEmpty)
+            Button(action: commitAdd) {
+                Image(systemName: "plus.circle.fill")
+                    .foregroundStyle(Color.accentColor)
+                    .imageScale(.large)
+            }
+            .buttonStyle(.plain)
+            .disabled(newTrigger.trimmingCharacters(in: .whitespaces).isEmpty || newExpansion.isEmpty)
+            .help("Add snippet")
         }
         .padding(12)
+        .background(Color.accentColor.opacity(0.06))
     }
 
     private var settingsRow: some View {
