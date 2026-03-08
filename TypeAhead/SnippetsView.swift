@@ -21,9 +21,11 @@ struct SnippetsView: View {
 
     enum FocusField { case trigger, name, expansion }
     enum SortKey { case trigger, name, expansion }
+    enum ListOrder { case alphabetical, recency }
 
-    @State private var sortKey: SortKey? = .trigger
+    @State private var sortKey: SortKey? = nil
     @State private var sortAscending = true
+    @State private var listOrder: ListOrder = .alphabetical
 
     private var displayedIndices: [Int] {
         // Filter
@@ -39,20 +41,30 @@ struct SnippetsView: View {
                     || s.expansion.lowercased().contains(q)
             }
         }
-        // Sort
-        guard let key = sortKey else { return indices }
-        return indices.sorted {
-            let a = store.snippets[$0]
-            let b = store.snippets[$1]
-            let lhs: String
-            let rhs: String
-            switch key {
-            case .trigger:   lhs = a.trigger;   rhs = b.trigger
-            case .name:      lhs = a.name;       rhs = b.name
-            case .expansion: lhs = a.expansion;  rhs = b.expansion
+        // Column sort overrides the base list order
+        if let key = sortKey {
+            return indices.sorted {
+                let a = store.snippets[$0]
+                let b = store.snippets[$1]
+                let lhs: String
+                let rhs: String
+                switch key {
+                case .trigger:   lhs = a.trigger;   rhs = b.trigger
+                case .name:      lhs = a.name;       rhs = b.name
+                case .expansion: lhs = a.expansion;  rhs = b.expansion
+                }
+                return sortAscending ? lhs.localizedCaseInsensitiveCompare(rhs) == .orderedAscending
+                                     : lhs.localizedCaseInsensitiveCompare(rhs) == .orderedDescending
             }
-            return sortAscending ? lhs.localizedCaseInsensitiveCompare(rhs) == .orderedAscending
-                                 : lhs.localizedCaseInsensitiveCompare(rhs) == .orderedDescending
+        }
+        // Base list order
+        switch listOrder {
+        case .alphabetical:
+            return indices.sorted {
+                store.snippets[$0].trigger.localizedCaseInsensitiveCompare(store.snippets[$1].trigger) == .orderedAscending
+            }
+        case .recency:
+            return indices.sorted { store.snippets[$0].createdAt > store.snippets[$1].createdAt }
         }
     }
 
@@ -128,9 +140,31 @@ struct SnippetsView: View {
                 }
                 .buttonStyle(.plain)
             }
+            Spacer()
+            // Order toggle: alphabetical ↔ recency
+            HStack(spacing: 0) {
+                orderToggleButton(icon: "textformat", order: .alphabetical, tooltip: "Sort A–Z by trigger")
+                orderToggleButton(icon: "clock", order: .recency, tooltip: "Sort by most recently added")
+            }
+            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
+    }
+
+    private func orderToggleButton(icon: String, order: ListOrder, tooltip: String) -> some View {
+        Button {
+            listOrder = order
+            sortKey = nil   // clear column sort so base order takes effect
+        } label: {
+            Image(systemName: icon)
+                .frame(width: 26, height: 20)
+                .foregroundStyle(listOrder == order ? .primary : .secondary)
+                .background(listOrder == order ? Color.primary.opacity(0.12) : .clear,
+                            in: RoundedRectangle(cornerRadius: 5))
+        }
+        .buttonStyle(.plain)
+        .help(tooltip)
     }
 
     private var headerRow: some View {

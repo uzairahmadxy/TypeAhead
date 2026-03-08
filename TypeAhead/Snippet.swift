@@ -13,6 +13,8 @@ struct Snippet: Identifiable, Codable, Equatable {
     /// When true, this snippet is excluded from the "show all on prefix" list.
     /// It only appears once the user has started typing its trigger explicitly.
     var requiresExplicitTrigger: Bool = false
+    /// When this snippet was created — used for recency sorting.
+    var createdAt: Date = Date()
 
     init(id: UUID = UUID(), trigger: String, name: String = "", expansion: String, requiresExplicitTrigger: Bool = false) {
         self.id = id
@@ -20,6 +22,7 @@ struct Snippet: Identifiable, Codable, Equatable {
         self.name = name
         self.expansion = expansion
         self.requiresExplicitTrigger = requiresExplicitTrigger
+        self.createdAt = Date()
     }
 
     /// The label shown in the suggestion popup.
