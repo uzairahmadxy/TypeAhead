@@ -9,8 +9,8 @@ class WordBuffer {
     private var snippets: [Snippet] = []
     private(set) var buffer = ""
 
-    /// The character that resets the buffer and starts a new trigger (default: "@").
-    var triggerPrefix: String = "@"
+    /// The string that resets the buffer and starts a new trigger (default: "//").
+    var triggerPrefix: String = "//"
 
     /// When true, show all snippets immediately on trigger prefix alone.
     var showOnPrefix: Bool = false

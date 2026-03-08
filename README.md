@@ -2,22 +2,25 @@
 
 A lightweight macOS menu bar app that expands text snippets as you type — system-wide, in any app.
 
-Type a trigger like `@email` and TypeAhead instantly replaces it with your full expansion.
+Type a trigger like `//email` and TypeAhead instantly replaces it with your full expansion.
 
 ---
 
 ## Features
 
 - **System-wide expansion** — works in any text field across all apps
-- **Inline suggestion popup** — appears near your cursor as you type, navigate with arrow keys, confirm with Tab or Return
-- **Snippet management** — add, edit, delete, reorder, search, and sort your snippets in one window
-- **Import / Export** — back up or share snippets as JSON
-- **Configurable trigger prefix** — default `@`, change to anything you like
-- **Show all on prefix** — typing the prefix alone lists every snippet
+- **Inline suggestion popup** — appears near your cursor as you type; navigate with ↑ ↓, confirm with Tab or Return, dismiss with Escape
+- **Snippet management** — add, edit, delete, reorder, search, and sort snippets in one window
+- **Sortable columns** — click Trigger, Name, or Expansion header to sort; click again to toggle direction
+- **Search bar** — filter snippets instantly by trigger, name, or expansion text
+- **Exact trigger** — mark individual snippets to only appear when their trigger is typed explicitly, hiding them from the show-all list
+- **Import / Export** — back up or share your snippet library as JSON
+- **Configurable trigger prefix** — default `//`, change to anything you like
+- **Show all on prefix** — typing the prefix alone lists every eligible snippet
 - **Search expansions** — optionally match the popup against expansion text, not just trigger names
 - **Backspace undo** — one backspace immediately after an expansion reverts it
 - **Launch at login** — optional, toggled from the menu bar
-- **Watchdog** — automatically restarts the event tap if it dies
+- **Watchdog** — automatically restarts the event tap if it ever dies
 
 ---
 
@@ -50,22 +53,36 @@ Open **Manage Snippets** from the menu bar icon. Fill in:
 
 | Field | Description |
 |---|---|
-| Trigger | The shorthand you type, e.g. `@email` |
-| Name | Optional label shown in the popup (falls back to trigger) |
+| Trigger | The shorthand you type, e.g. `//email` |
+| Name | Optional label shown in the popup (falls back to trigger if empty) |
 | Expansion | The full text to insert |
 
-Press the **+** button or hit Return to add.
+Press the **+** icon or hit Return to add.
 
 ### Using a snippet
 
 Type the trigger in any text field. A popup appears near your cursor — use **↑ ↓** to navigate, **Tab** or **Return** to accept, **Escape** to dismiss.
 
+### Sorting & searching
+
+- Click any column header (**Trigger**, **Name**, **Expansion**) to sort; click again to reverse
+- Use the search bar to filter by any field — drag reorder is disabled while a filter or sort is active
+
+### Exact trigger
+
+Each snippet has an **eye** icon in the row. Click it to toggle **Exact trigger** mode (eye-slash):
+
+- **Eye (default)** — snippet appears in the show-all list when you type the prefix alone
+- **Eye-slash** — snippet is hidden from the show-all list; it only appears once you start typing its trigger explicitly
+
+Useful for sensitive or rarely-used snippets you don't want cluttering the popup.
+
 ### Settings (bottom of Manage Snippets)
 
 | Setting | Description |
 |---|---|
-| Trigger prefix | Character that starts every trigger (default `@`) |
-| Show all on prefix | Typing the prefix alone shows all snippets |
+| Trigger prefix | String that starts every trigger (default `//`) |
+| Show all on prefix | Typing the prefix alone shows all eligible snippets |
 | Search expansions | Popup also matches against expansion text |
 
 ---

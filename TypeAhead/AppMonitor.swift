@@ -40,7 +40,7 @@ class AppMonitor: ObservableObject {
 
     init() {
         UserDefaults.standard.register(defaults: [
-            "triggerPrefix": "@",
+            "triggerPrefix": "//",
             "showOnPrefix": true,
             "searchExpansions": true
         ])
@@ -57,8 +57,8 @@ class AppMonitor: ObservableObject {
     }
 
     private static func storedTriggerPrefix() -> String {
-        let raw = UserDefaults.standard.string(forKey: "triggerPrefix") ?? "@"
-        return raw.isEmpty ? "@" : raw
+        let raw = UserDefaults.standard.string(forKey: "triggerPrefix") ?? "//"
+        return raw.isEmpty ? "//" : raw
     }
 
     func openAccessibilitySettings() {

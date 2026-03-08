@@ -7,7 +7,7 @@ import SwiftUI
 
 struct SnippetsView: View {
     @EnvironmentObject var store: SnippetStore
-    @AppStorage("triggerPrefix") private var triggerPrefix: String = "@"
+    @AppStorage("triggerPrefix") private var triggerPrefix: String = "//"
     @AppStorage("showOnPrefix") private var showOnPrefix: Bool = true
     @AppStorage("searchExpansions") private var searchExpansions: Bool = true
 
