@@ -299,11 +299,9 @@ struct SnippetsView: View {
             Text("→")
                 .foregroundStyle(.secondary)
 
-            TextEditor(text: $newExpansion)
-                .font(.body)
-                .frame(minHeight: 22, maxHeight: 80)
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color(nsColor: .separatorColor)))
+            TextField("expansion text", text: $newExpansion, axis: .vertical)
+                .textFieldStyle(.roundedBorder)
+                .lineLimit(1...4)
                 .focused($focus, equals: .expansion)
 
             Button(action: commitAdd) {
