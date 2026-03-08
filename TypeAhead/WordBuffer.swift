@@ -18,6 +18,9 @@ class WordBuffer {
     /// When true, also match snippets whose expansion contains the query.
     var searchExpansions: Bool = false
 
+    /// When true, sort popup results by most recently added instead of alphabetically.
+    var sortByRecency: Bool = false
+
     var bufferLength: Int { buffer.count }
 
     /// Called on the main thread whenever the match list changes.
@@ -79,7 +82,12 @@ class WordBuffer {
 
         let matches = snippets
             .filter { snippetMatches($0, query: query) }
-            .sorted { $0.trigger == $1.trigger ? $0.name < $1.name : $0.trigger < $1.trigger }
+            .sorted {
+                if sortByRecency {
+                    return $0.createdAt > $1.createdAt
+                }
+                return $0.trigger == $1.trigger ? $0.name < $1.name : $0.trigger < $1.trigger
+            }
 
         if !matches.isEmpty {
             print("[TypeAhead] Buffer: '\(buffer)' — \(matches.count) match(es): \(matches.map { "\($0.trigger)/\($0.displayName)" })")

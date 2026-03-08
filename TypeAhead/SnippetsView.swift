@@ -25,7 +25,9 @@ struct SnippetsView: View {
 
     @State private var sortKey: SortKey? = nil
     @State private var sortAscending = true
-    @State private var listOrder: ListOrder = .alphabetical
+    @AppStorage("sortByRecency") private var sortByRecency: Bool = false
+
+    private var listOrder: ListOrder { sortByRecency ? .recency : .alphabetical }
 
     private var displayedIndices: [Int] {
         // Filter
@@ -153,14 +155,15 @@ struct SnippetsView: View {
     }
 
     private func orderToggleButton(icon: String, order: ListOrder, tooltip: String) -> some View {
-        Button {
-            listOrder = order
+        let isActive = listOrder == order
+        return Button {
+            sortByRecency = (order == .recency)
             sortKey = nil   // clear column sort so base order takes effect
         } label: {
             Image(systemName: icon)
                 .frame(width: 26, height: 20)
-                .foregroundStyle(listOrder == order ? .primary : .secondary)
-                .background(listOrder == order ? Color.primary.opacity(0.12) : .clear,
+                .foregroundStyle(isActive ? .primary : .secondary)
+                .background(isActive ? Color.primary.opacity(0.12) : .clear,
                             in: RoundedRectangle(cornerRadius: 5))
         }
         .buttonStyle(.plain)

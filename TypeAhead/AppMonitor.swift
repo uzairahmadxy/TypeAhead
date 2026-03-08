@@ -42,15 +42,17 @@ class AppMonitor: ObservableObject {
         UserDefaults.standard.register(defaults: [
             "triggerPrefix": "//",
             "showOnPrefix": true,
-            "searchExpansions": true
+            "searchExpansions": true,
+            "sortByRecency": false
         ])
         let buffer = WordBuffer()
         let monitor = KeyboardMonitor(wordBuffer: buffer)
         self.wordBuffer = buffer
         self.keyboardMonitor = monitor
         buffer.triggerPrefix = Self.storedTriggerPrefix()
-        buffer.showOnPrefix = UserDefaults.standard.bool(forKey: "showOnPrefix")   // defaults true
-        buffer.searchExpansions = UserDefaults.standard.bool(forKey: "searchExpansions") // defaults true
+        buffer.showOnPrefix = UserDefaults.standard.bool(forKey: "showOnPrefix")
+        buffer.searchExpansions = UserDefaults.standard.bool(forKey: "searchExpansions")
+        buffer.sortByRecency = UserDefaults.standard.bool(forKey: "sortByRecency")
         setupCallbacks()
         if isEnabled { keyboardMonitor.start() }
         startWatchdog()
@@ -137,6 +139,7 @@ class AppMonitor: ObservableObject {
                 }
                 wordBuffer.showOnPrefix = UserDefaults.standard.bool(forKey: "showOnPrefix")
                 wordBuffer.searchExpansions = UserDefaults.standard.bool(forKey: "searchExpansions")
+                wordBuffer.sortByRecency = UserDefaults.standard.bool(forKey: "sortByRecency")
             }
             .store(in: &cancellables)
     }
