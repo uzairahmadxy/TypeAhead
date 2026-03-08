@@ -201,7 +201,7 @@ struct SnippetsView: View {
                 .font(.system(.body, design: .monospaced))
                 .frame(width: 120)
 
-            TextField("(optional)", text: snippet.name)
+            TextField("", text: snippet.name)
                 .textFieldStyle(.plain)
                 .foregroundStyle(.secondary)
                 .frame(width: 120)
