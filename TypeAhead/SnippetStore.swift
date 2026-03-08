@@ -70,9 +70,24 @@ class SnippetStore: ObservableObject {
            let saved = try? JSONDecoder().decode([Snippet].self, from: data) {
             snippets = saved
         } else {
-            snippets = []
+            snippets = Self.defaultSnippets
+            save()
         }
     }
+
+    private static let defaultSnippets: [Snippet] = [
+        Snippet(
+            trigger: "//email",
+            name: "My Email",
+            expansion: "myemail@domain.com",
+            requiresExplicitTrigger: true
+        ),
+        Snippet(
+            trigger: "//omw",
+            name: "On My Way",
+            expansion: "On My Way!"
+        ),
+    ]
 
     func save() {
         let encoder = JSONEncoder()
