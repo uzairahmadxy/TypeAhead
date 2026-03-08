@@ -250,9 +250,11 @@ struct SnippetsView: View {
             Text("→")
                 .foregroundStyle(.secondary)
 
-            TextField("expansion", text: snippet.expansion, axis: .vertical)
-                .textFieldStyle(.plain)
-                .lineLimit(1...5)
+            TextEditor(text: snippet.expansion)
+                .font(.body)
+                .scrollContentBackground(.hidden)
+                .frame(minHeight: 20, maxHeight: 80)
+                .padding(.vertical, -4)
 
             Button {
                 snippet.requiresExplicitTrigger.wrappedValue.toggle()
@@ -297,11 +299,12 @@ struct SnippetsView: View {
             Text("→")
                 .foregroundStyle(.secondary)
 
-            TextField("expansion text", text: $newExpansion, axis: .vertical)
-                .textFieldStyle(.roundedBorder)
-                .lineLimit(1...5)
+            TextEditor(text: $newExpansion)
+                .font(.body)
+                .frame(minHeight: 28, maxHeight: 80)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color(nsColor: .separatorColor)))
                 .focused($focus, equals: .expansion)
-                .onSubmit { commitAdd() }
 
             Button(action: commitAdd) {
                 Image(systemName: "plus.circle.fill")
