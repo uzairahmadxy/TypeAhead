@@ -142,6 +142,10 @@ struct SnippetsView: View {
                 .frame(width: 120, alignment: .leading)
             sortHeaderButton("Expansion", key: .expansion)
             Spacer()
+            Text("Exact trigger")
+                .foregroundStyle(.secondary)
+                .frame(width: 96, alignment: .center)
+                .padding(.trailing, 34)
         }
         .font(.caption)
         .padding(.vertical, 7)
@@ -219,9 +223,10 @@ struct SnippetsView: View {
                     .foregroundStyle(snippet.requiresExplicitTrigger.wrappedValue ? .primary : .tertiary)
             }
             .buttonStyle(.plain)
+            .frame(width: 96)
             .help(snippet.requiresExplicitTrigger.wrappedValue
-                ? "Hidden from show-all list (requires explicit trigger)"
-                : "Visible in show-all list")
+                ? "Only shown when trigger is typed explicitly"
+                : "Shown in show-all list when prefix is typed")
 
             Button {
                 store.delete(snippet.wrappedValue)
