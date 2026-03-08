@@ -172,6 +172,10 @@ struct SnippetsView: View {
 
     private var addRow: some View {
         HStack(spacing: 10) {
+            Image(systemName: "plus.circle.fill")
+                .foregroundStyle(.accent)
+                .imageScale(.medium)
+
             TextField("trigger", text: $newTrigger)
                 .textFieldStyle(.roundedBorder)
                 .font(.system(.body, design: .monospaced))
@@ -194,9 +198,12 @@ struct SnippetsView: View {
                 .onSubmit { commitAdd() }
 
             Button("Add", action: commitAdd)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
                 .disabled(newTrigger.trimmingCharacters(in: .whitespaces).isEmpty || newExpansion.isEmpty)
         }
         .padding(12)
+        .background(Color.accentColor.opacity(0.06))
     }
 
     private var settingsRow: some View {
