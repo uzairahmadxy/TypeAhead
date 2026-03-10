@@ -212,7 +212,7 @@ class AppMonitor: ObservableObject {
         wordBuffer.reset()
         suggestionPanel.hide()
 
-        let placeholders = parsePlaceholders(snippet.expansion)
+        let placeholders = snippet.hasPlaceholders ? parsePlaceholders(snippet.expansion) : []
         if !placeholders.isEmpty {
             fillState = FillState(
                 expansion: snippet.expansion,
