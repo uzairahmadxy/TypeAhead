@@ -6,11 +6,16 @@
 import AppKit
 import SwiftUI
 
+// MARK: - Shared styling
+
+let panelBackground = Color(red: 0.13, green: 0.13, blue: 0.15)
+
 // MARK: - Panel
 
 final class SuggestionPanel: NSPanel {
 
-    private var hostingView: NSHostingView<SuggestionView>?
+    private var matchHostingView: NSHostingView<SuggestionView>?
+    private var fillHostingView: NSHostingView<FillView>?
     private(set) var currentMatches: [Snippet] = []
     private(set) var selectedIndex: Int = 0
 
@@ -42,20 +47,25 @@ final class SuggestionPanel: NSPanel {
             selectedIndex = 0
         }
         currentMatches = matches
-        updateContent()
+        fillHostingView = nil
+        updateMatchContent()
+        position(near: cursorRect, preferredWidth: 260)
+        orderFront(nil)
+    }
 
-        let panelSize = hostingView?.fittingSize ?? CGSize(width: 320, height: 44)
-        let screenH = NSScreen.main?.frame.height ?? 0
-        let cursorBottomNSY = screenH - cursorRect.maxY
-        let panelY = cursorBottomNSY - 6 - panelSize.height
-
-        setFrame(NSRect(
-            x: cursorRect.minX,
-            y: panelY,
-            width: max(panelSize.width, 260),
-            height: panelSize.height
-        ), display: true)
-
+    func showFill(placeholder: String, typed: String, index: Int, total: Int, near cursorRect: CGRect) {
+        currentMatches = []
+        matchHostingView = nil
+        let view = FillView(placeholder: placeholder, typed: typed, index: index, total: total)
+        if let hv = fillHostingView {
+            hv.rootView = view
+        } else {
+            let hv = NSHostingView(rootView: view)
+            fillHostingView = hv
+            contentView = hv
+        }
+        let size = fillHostingView?.fittingSize ?? CGSize(width: 260, height: 60)
+        position(near: cursorRect, preferredWidth: size.width)
         orderFront(nil)
     }
 
@@ -63,18 +73,19 @@ final class SuggestionPanel: NSPanel {
         orderOut(nil)
         currentMatches = []
         selectedIndex = 0
+        fillHostingView = nil
     }
 
     func selectNext() {
         guard !currentMatches.isEmpty else { return }
         selectedIndex = (selectedIndex + 1) % currentMatches.count
-        updateContent()
+        updateMatchContent()
     }
 
     func selectPrevious() {
         guard !currentMatches.isEmpty else { return }
         selectedIndex = (selectedIndex - 1 + currentMatches.count) % currentMatches.count
-        updateContent()
+        updateMatchContent()
     }
 
     var selectedMatch: Snippet? {
@@ -84,15 +95,27 @@ final class SuggestionPanel: NSPanel {
 
     // MARK: - Private
 
-    private func updateContent() {
+    private func updateMatchContent() {
         let view = SuggestionView(matches: currentMatches, selectedIndex: selectedIndex)
-        if let hv = hostingView {
+        if let hv = matchHostingView {
             hv.rootView = view
         } else {
             let hv = NSHostingView(rootView: view)
-            hostingView = hv
+            matchHostingView = hv
             contentView = hv
         }
+    }
+
+    private func position(near cursorRect: CGRect, preferredWidth: CGFloat) {
+        let size = contentView?.fittingSize ?? CGSize(width: preferredWidth, height: 44)
+        let screenH = NSScreen.main?.frame.height ?? 0
+        let panelY = screenH - cursorRect.maxY - 6 - size.height
+        setFrame(NSRect(
+            x: cursorRect.minX,
+            y: panelY,
+            width: max(size.width, preferredWidth),
+            height: size.height
+        ), display: true)
     }
 }
 
@@ -101,8 +124,6 @@ final class SuggestionPanel: NSPanel {
 struct SuggestionView: View {
     let matches: [Snippet]
     let selectedIndex: Int
-
-    private static let bg = Color(red: 0.13, green: 0.13, blue: 0.15)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -115,7 +136,7 @@ struct SuggestionView: View {
                 }
             }
         }
-        .background(Self.bg, in: RoundedRectangle(cornerRadius: 9))
+        .background(panelBackground, in: RoundedRectangle(cornerRadius: 9))
         .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5))
         .shadow(color: .black.opacity(0.35), radius: 10, y: 4)
         .padding(4)
@@ -156,5 +177,46 @@ struct SuggestionView: View {
                     in: RoundedRectangle(cornerRadius: 6))
         .padding(.horizontal, 4)
         .padding(.vertical, 2)
+    }
+}
+
+// MARK: - Fill View
+
+struct FillView: View {
+    let placeholder: String
+    let typed: String
+    let index: Int
+    let total: Int
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(placeholder)
+                .font(.caption)
+                .foregroundStyle(Color.white.opacity(0.5))
+                .fixedSize()
+
+            HStack(spacing: 0) {
+                Text(typed.isEmpty ? "" : typed)
+                    .foregroundStyle(Color.white)
+                    .fixedSize()
+                Rectangle()
+                    .frame(width: 1.5, height: 14)
+                    .foregroundStyle(Color.white.opacity(0.8))
+            }
+
+            if total > 1 {
+                Spacer()
+                Text("\(index + 1)/\(total)")
+                    .font(.caption2)
+                    .foregroundStyle(Color.white.opacity(0.3))
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(minWidth: 200)
+        .background(panelBackground, in: RoundedRectangle(cornerRadius: 9))
+        .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.35), radius: 10, y: 4)
+        .padding(4)
     }
 }

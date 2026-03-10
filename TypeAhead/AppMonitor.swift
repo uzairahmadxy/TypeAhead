@@ -34,9 +34,19 @@ class AppMonitor: ObservableObject {
     private let suggestionPanel = SuggestionPanel()
     private let cursorTracker = CursorTracker()
     private let textInjector = TextInjector()
-    private let placeholderPanel = PlaceholderFillPanel()
     private var cancellables = Set<AnyCancellable>()
     private var lastExpansionLength = 0
+
+    private struct FillState {
+        var expansion: String
+        var placeholders: [String]
+        var prefixLen: Int
+        var isShell: Bool
+        var currentIndex: Int = 0
+        var currentInput: String = ""
+        var collected: [String]
+    }
+    private var fillState: FillState?
     private var watchdog: AnyCancellable?
     private let hotkeyManager = HotkeyManager()
 
@@ -106,11 +116,25 @@ class AppMonitor: ObservableObject {
             self?.handleMatchesChanged(matches)
         }
         keyboardMonitor.onBackspace = { [weak self] in
-            guard let self, lastExpansionLength > 0 else { return false }
+            guard let self else { return false }
+            // In fill mode, backspace removes the last typed character
+            if self.fillState != nil {
+                if !(self.fillState!.currentInput.isEmpty) {
+                    self.fillState!.currentInput.removeLast()
+                    self.updateFillPanel()
+                }
+                return true
+            }
+            guard lastExpansionLength > 0 else { return false }
             let len = lastExpansionLength
             lastExpansionLength = 0
             textInjector.inject(expansion: "", replacingPrefixOfLength: len)
             return true
+        }
+        keyboardMonitor.onFillCharacter = { [weak self] char in
+            guard let self, self.fillState != nil else { return }
+            self.fillState!.currentInput.append(char)
+            self.updateFillPanel()
         }
         keyboardMonitor.isPopupVisible = { [weak self] in
             self?.suggestionPanel.isVisible ?? false
@@ -133,7 +157,7 @@ class AppMonitor: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.wordBuffer.reset()
-                self?.suggestionPanel.hide()
+                self?.cancelFill()
             }
             .store(in: &cancellables)
 
@@ -172,6 +196,13 @@ class AppMonitor: ObservableObject {
     }
 
     private func handleSpecialKey(_ key: SpecialKey) -> Bool {
+        if fillState != nil {
+            switch key {
+            case .tab, .returnKey: advanceFill(); return true
+            case .escape:          cancelFill();  return true
+            default:               return false
+            }
+        }
         switch key {
         case .tab, .returnKey: acceptSuggestion(); return true
         case .escape:          wordBuffer.reset(); suggestionPanel.hide(); return true
@@ -188,18 +219,50 @@ class AppMonitor: ObservableObject {
 
         let placeholders = parsePlaceholders(snippet.expansion)
         if !placeholders.isEmpty {
-            placeholderPanel.show(
-                snippetName: snippet.displayName,
+            fillState = FillState(
+                expansion: snippet.expansion,
                 placeholders: placeholders,
-                near: cursorTracker.getCursorRect()
-            ) { [weak self] values in
-                guard let self else { return }
-                let filled = self.fillPlaceholders(snippet.expansion, placeholders: placeholders, values: values)
-                self.injectExpansion(filled, isShell: snippet.isShellCommand, prefixLen: prefixLen)
-            }
+                prefixLen: prefixLen,
+                isShell: snippet.isShellCommand,
+                collected: Array(repeating: "", count: placeholders.count)
+            )
+            updateFillPanel()
         } else {
             injectExpansion(snippet.expansion, isShell: snippet.isShellCommand, prefixLen: prefixLen)
         }
+    }
+
+    private func updateFillPanel() {
+        guard let state = fillState else { return }
+        let ph = state.placeholders[state.currentIndex]
+        suggestionPanel.showFill(
+            placeholder: ph,
+            typed: state.currentInput,
+            index: state.currentIndex,
+            total: state.placeholders.count,
+            near: cursorTracker.getCursorRect()
+        )
+    }
+
+    private func advanceFill() {
+        guard var state = fillState else { return }
+        state.collected[state.currentIndex] = state.currentInput
+        state.currentIndex += 1
+        if state.currentIndex < state.placeholders.count {
+            state.currentInput = ""
+            fillState = state
+            updateFillPanel()
+        } else {
+            let filled = fillPlaceholders(state.expansion, placeholders: state.placeholders, values: state.collected)
+            cancelFill()
+            injectExpansion(filled, isShell: state.isShell, prefixLen: state.prefixLen)
+        }
+    }
+
+    private func cancelFill() {
+        fillState = nil
+        keyboardMonitor.onFillCharacter = nil
+        suggestionPanel.hide()
     }
 
     private func injectExpansion(_ expansion: String, isShell: Bool, prefixLen: Int) {
