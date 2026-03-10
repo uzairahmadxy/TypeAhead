@@ -239,7 +239,9 @@ class AppMonitor: ObservableObject {
             placeholder: ph,
             typed: state.currentInput,
             index: state.currentIndex,
-            total: state.placeholders.count,
+            expansion: state.expansion,
+            placeholders: state.placeholders,
+            collected: state.collected,
             near: cursorTracker.getCursorRect()
         )
     }

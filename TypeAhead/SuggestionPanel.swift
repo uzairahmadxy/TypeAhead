@@ -53,10 +53,13 @@ final class SuggestionPanel: NSPanel {
         orderFront(nil)
     }
 
-    func showFill(placeholder: String, typed: String, index: Int, total: Int, near cursorRect: CGRect) {
+    func showFill(placeholder: String, typed: String, index: Int,
+                  expansion: String, placeholders: [String], collected: [String],
+                  near cursorRect: CGRect) {
         currentMatches = []
         matchHostingView = nil
-        let view = FillView(placeholder: placeholder, typed: typed, index: index, total: total)
+        let view = FillView(placeholder: placeholder, typed: typed, index: index,
+                            expansion: expansion, placeholders: placeholders, collected: collected)
         if let hv = fillHostingView {
             hv.rootView = view
         } else {
@@ -64,7 +67,7 @@ final class SuggestionPanel: NSPanel {
             fillHostingView = hv
             contentView = hv
         }
-        let size = fillHostingView?.fittingSize ?? CGSize(width: 260, height: 60)
+        let size = fillHostingView?.fittingSize ?? CGSize(width: 280, height: 80)
         position(near: cursorRect, preferredWidth: size.width)
         orderFront(nil)
     }
@@ -186,37 +189,74 @@ struct FillView: View {
     let placeholder: String
     let typed: String
     let index: Int
-    let total: Int
+    let expansion: String
+    let placeholders: [String]
+    let collected: [String]   // filled values for indices 0..<index
 
     var body: some View {
-        HStack(spacing: 8) {
-            Text(placeholder)
-                .font(.caption)
-                .foregroundStyle(Color.white.opacity(0.5))
-                .fixedSize()
-
-            HStack(spacing: 0) {
-                Text(typed.isEmpty ? "" : typed)
-                    .foregroundStyle(Color.white)
+        VStack(alignment: .leading, spacing: 6) {
+            // Current placeholder input row
+            HStack(spacing: 6) {
+                Text(placeholder)
+                    .font(.caption)
+                    .foregroundStyle(Color.white.opacity(0.5))
                     .fixedSize()
-                Rectangle()
-                    .frame(width: 1.5, height: 14)
-                    .foregroundStyle(Color.white.opacity(0.8))
+                HStack(spacing: 0) {
+                    Text(typed)
+                        .foregroundStyle(Color.white)
+                        .fixedSize()
+                    Rectangle()
+                        .frame(width: 1.5, height: 13)
+                        .foregroundStyle(Color.white.opacity(0.85))
+                }
+                if placeholders.count > 1 {
+                    Spacer()
+                    Text("\(index + 1)/\(placeholders.count)")
+                        .font(.caption2)
+                        .foregroundStyle(Color.white.opacity(0.3))
+                }
             }
 
-            if total > 1 {
-                Spacer()
-                Text("\(index + 1)/\(total)")
-                    .font(.caption2)
-                    .foregroundStyle(Color.white.opacity(0.3))
-            }
+            // Live preview of the assembled expansion
+            Divider().background(Color.white.opacity(0.12))
+            previewText
+                .font(.caption)
+                .lineLimit(4)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .frame(minWidth: 200)
+        .frame(minWidth: 260, maxWidth: 380)
         .background(panelBackground, in: RoundedRectangle(cornerRadius: 9))
         .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5))
         .shadow(color: .black.opacity(0.35), radius: 10, y: 4)
         .padding(4)
+    }
+
+    /// Builds a mixed-style Text by walking the expansion template.
+    private var previewText: Text {
+        var result = Text("")
+        var remaining = expansion[expansion.startIndex...]
+        for (i, ph) in placeholders.enumerated() {
+            let marker = "{\(ph)}"
+            guard let range = remaining.range(of: marker) else { continue }
+            let before = String(remaining[remaining.startIndex..<range.lowerBound])
+            if !before.isEmpty {
+                result = result + Text(before).foregroundStyle(Color.white.opacity(0.55))
+            }
+            if i < index {
+                result = result + Text(collected[i]).foregroundStyle(Color.white)
+            } else if i == index {
+                let display = typed.isEmpty ? "_" : typed
+                result = result + Text(display).foregroundStyle(Color.accentColor)
+            } else {
+                result = result + Text(marker).foregroundStyle(Color.white.opacity(0.25))
+            }
+            remaining = remaining[range.upperBound...]
+        }
+        if !remaining.isEmpty {
+            result = result + Text(String(remaining)).foregroundStyle(Color.white.opacity(0.55))
+        }
+        return result
     }
 }
