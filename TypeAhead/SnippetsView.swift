@@ -179,6 +179,9 @@ struct SnippetsView: View {
                 .frame(width: 120, alignment: .leading)
             sortHeaderButton("Expansion", key: .expansion)
             Spacer()
+            Text("Shell")
+                .foregroundStyle(.secondary)
+                .frame(width: 48, alignment: .center)
             Text("Exact trigger")
                 .foregroundStyle(.secondary)
                 .frame(width: 96, alignment: .center)
@@ -257,16 +260,16 @@ struct SnippetsView: View {
                 .padding(.vertical, -4)
 
             Button {
-                snippet.requiresExplicitTrigger.wrappedValue.toggle()
+                snippet.isShellCommand.wrappedValue.toggle()
             } label: {
-                Image(systemName: snippet.requiresExplicitTrigger.wrappedValue ? "eye.slash" : "eye")
-                    .foregroundStyle(snippet.requiresExplicitTrigger.wrappedValue ? .primary : .tertiary)
+                Image(systemName: "terminal")
+                    .foregroundStyle(snippet.isShellCommand.wrappedValue ? Color.accentColor : .tertiary)
             }
             .buttonStyle(.plain)
-            .frame(width: 96)
-            .help(snippet.requiresExplicitTrigger.wrappedValue
-                ? "Only shown when trigger is typed explicitly"
-                : "Shown in show-all list when prefix is typed")
+            .frame(width: 48)
+            .help(snippet.isShellCommand.wrappedValue
+                ? "Expansion runs as a shell command — output is inserted"
+                : "Plain text expansion")
 
             Button {
                 snippet.requiresExplicitTrigger.wrappedValue.toggle()

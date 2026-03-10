@@ -184,8 +184,32 @@ class AppMonitor: ObservableObject {
         let prefixLen = wordBuffer.bufferLength
         wordBuffer.reset()
         suggestionPanel.hide()
-        textInjector.inject(expansion: snippet.expansion, replacingPrefixOfLength: prefixLen)
-        // Record expansion length so the next backspace can undo it
-        lastExpansionLength = snippet.expansion.count
+        if snippet.isShellCommand {
+            let output = runShellCommand(snippet.expansion) ?? ""
+            textInjector.inject(expansion: output, replacingPrefixOfLength: prefixLen)
+            lastExpansionLength = output.count
+        } else {
+            textInjector.inject(expansion: snippet.expansion, replacingPrefixOfLength: prefixLen)
+            lastExpansionLength = snippet.expansion.count
+        }
+    }
+
+    /// Runs a shell command synchronously (max 3s) and returns trimmed stdout.
+    /// ⚠️ Experimental — blocks the main thread briefly.
+    private func runShellCommand(_ command: String) -> String? {
+        let process = Process()
+        let outPipe = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        process.arguments = ["-c", command]
+        process.standardOutput = outPipe
+        process.standardError = Pipe()
+        guard (try? process.run()) != nil else { return nil }
+        // Wait up to 3 seconds on a background thread
+        let sema = DispatchSemaphore(value: 0)
+        DispatchQueue.global().async { process.waitUntilExit(); sema.signal() }
+        if sema.wait(timeout: .now() + 3) == .timedOut { process.terminate() }
+        let data = outPipe.fileHandleForReading.readDataToEndOfFile()
+        return String(data: data, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
