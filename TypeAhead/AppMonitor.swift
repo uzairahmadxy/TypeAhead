@@ -212,6 +212,12 @@ class AppMonitor: ObservableObject {
         wordBuffer.reset()
         suggestionPanel.hide()
 
+        if snippet.isKeystroke {
+            textInjector.inject(expansion: "", replacingPrefixOfLength: prefixLen)
+            fireKeystroke(keyCode: snippet.keystrokeKeyCode, modifiers: snippet.keystrokeModifiers)
+            return
+        }
+
         let placeholders = snippet.hasPlaceholders ? parsePlaceholders(snippet.expansion) : []
         if !placeholders.isEmpty {
             fillState = FillState(
@@ -298,6 +304,23 @@ class AppMonitor: ObservableObject {
             result = result.replacingOccurrences(of: "{\(ph)}", with: val)
         }
         return result
+    }
+
+    /// Fires a keyboard shortcut after a brief delay so trigger-deletion events are processed first.
+    private func fireKeystroke(keyCode: Int, modifiers: Int) {
+        guard keyCode >= 0 else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            guard let src = CGEventSource(stateID: .hidSystemState) else { return }
+            let flags = CGEventFlags(rawValue: UInt64(modifiers))
+            let dn = CGEvent(keyboardEventSource: src, virtualKey: CGKeyCode(keyCode), keyDown: true)
+            let up = CGEvent(keyboardEventSource: src, virtualKey: CGKeyCode(keyCode), keyDown: false)
+            dn?.flags = flags
+            up?.flags = flags
+            dn?.setIntegerValueField(.eventSourceUserData, value: TextInjector.markerValue)
+            up?.setIntegerValueField(.eventSourceUserData, value: TextInjector.markerValue)
+            dn?.post(tap: .cgAnnotatedSessionEventTap)
+            up?.post(tap: .cgAnnotatedSessionEventTap)
+        }
     }
 
     /// Runs a shell command synchronously (max 3s) and returns trimmed stdout.

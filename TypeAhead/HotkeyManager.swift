@@ -87,7 +87,7 @@ struct KeyRecorderButton: View {
         if let m = monitor { NSEvent.removeMonitor(m); monitor = nil }
     }
 
-    private static func format(event: NSEvent) -> String {
+    static func format(event: NSEvent) -> String {
         let mods  = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         var s = ""
         if mods.contains(.control) { s += "⌃" }
@@ -96,5 +96,60 @@ struct KeyRecorderButton: View {
         if mods.contains(.command) { s += "⌘" }
         s += (event.charactersIgnoringModifiers ?? "").uppercased()
         return s
+    }
+}
+
+// MARK: - Per-snippet Key Recorder
+
+/// Inline key recorder that stores its result into Snippet bindings.
+struct SnippetKeyRecorder: View {
+    @Binding var keyCode: Int
+    @Binding var modifiers: Int
+    @Binding var label: String     // stored in snippet.expansion for popup display
+
+    @State private var isRecording = false
+    @State private var monitor: Any?
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Button {
+                isRecording ? stopRecording() : startRecording()
+            } label: {
+                Text(isRecording ? "Press shortcut…" : (label.isEmpty ? "Click to record" : label))
+                    .frame(minWidth: 100, alignment: .center)
+            }
+            .buttonStyle(.bordered)
+            .foregroundStyle(isRecording ? Color.accentColor : Color.primary)
+            .onDisappear { stopRecording() }
+
+            if !label.isEmpty && !isRecording {
+                Button {
+                    keyCode = -1; modifiers = 0; label = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Clear shortcut")
+            }
+        }
+    }
+
+    private func startRecording() {
+        isRecording = true
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            if event.keyCode == 53 { self.stopRecording(); return nil }
+            let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            guard !mods.isEmpty else { return event }
+            self.keyCode    = Int(event.keyCode)
+            self.modifiers  = Int(mods.rawValue)
+            self.label      = KeyRecorderButton.format(event: event)
+            self.stopRecording()
+            return nil
+        }
+    }
+
+    private func stopRecording() {
+        isRecording = false
+        if let m = monitor { NSEvent.removeMonitor(m); monitor = nil }
     }
 }
