@@ -34,6 +34,7 @@ class AppMonitor: ObservableObject {
     private let suggestionPanel = SuggestionPanel()
     private let cursorTracker = CursorTracker()
     private let textInjector = TextInjector()
+    private let placeholderPanel = PlaceholderFillPanel()
     private var cancellables = Set<AnyCancellable>()
     private var lastExpansionLength = 0
     private var watchdog: AnyCancellable?
@@ -184,14 +185,54 @@ class AppMonitor: ObservableObject {
         let prefixLen = wordBuffer.bufferLength
         wordBuffer.reset()
         suggestionPanel.hide()
-        if snippet.isShellCommand {
-            let output = runShellCommand(snippet.expansion) ?? ""
+
+        let placeholders = parsePlaceholders(snippet.expansion)
+        if !placeholders.isEmpty {
+            placeholderPanel.show(
+                snippetName: snippet.displayName,
+                placeholders: placeholders,
+                near: cursorTracker.getCursorRect()
+            ) { [weak self] values in
+                guard let self else { return }
+                let filled = self.fillPlaceholders(snippet.expansion, placeholders: placeholders, values: values)
+                self.injectExpansion(filled, isShell: snippet.isShellCommand, prefixLen: prefixLen)
+            }
+        } else {
+            injectExpansion(snippet.expansion, isShell: snippet.isShellCommand, prefixLen: prefixLen)
+        }
+    }
+
+    private func injectExpansion(_ expansion: String, isShell: Bool, prefixLen: Int) {
+        if isShell {
+            let output = runShellCommand(expansion) ?? ""
             textInjector.inject(expansion: output, replacingPrefixOfLength: prefixLen)
             lastExpansionLength = output.count
         } else {
-            textInjector.inject(expansion: snippet.expansion, replacingPrefixOfLength: prefixLen)
-            lastExpansionLength = snippet.expansion.count
+            textInjector.inject(expansion: expansion, replacingPrefixOfLength: prefixLen)
+            lastExpansionLength = expansion.count
         }
+    }
+
+    private func parsePlaceholders(_ expansion: String) -> [String] {
+        let pattern = try! NSRegularExpression(pattern: "\\{([^}]+)\\}")
+        let range = NSRange(expansion.startIndex..., in: expansion)
+        var seen = Set<String>()
+        var result: [String] = []
+        for match in pattern.matches(in: expansion, range: range) {
+            if let r = Range(match.range(at: 1), in: expansion) {
+                let name = String(expansion[r])
+                if seen.insert(name).inserted { result.append(name) }
+            }
+        }
+        return result
+    }
+
+    private func fillPlaceholders(_ expansion: String, placeholders: [String], values: [String]) -> String {
+        var result = expansion
+        for (ph, val) in zip(placeholders, values) {
+            result = result.replacingOccurrences(of: "{\(ph)}", with: val)
+        }
+        return result
     }
 
     /// Runs a shell command synchronously (max 3s) and returns trimmed stdout.
