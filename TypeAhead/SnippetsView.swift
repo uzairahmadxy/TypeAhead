@@ -179,12 +179,9 @@ struct SnippetsView: View {
                 .frame(width: 120, alignment: .leading)
             sortHeaderButton("Expansion", key: .expansion)
             Spacer()
-            Text("Shell")
+            Text("Mode")
                 .foregroundStyle(.secondary)
-                .frame(width: 48, alignment: .center)
-            Text("{}")
-                .foregroundStyle(.secondary)
-                .frame(width: 40, alignment: .center)
+                .frame(width: 72, alignment: .center)
             Text("⌨")
                 .foregroundStyle(.secondary)
                 .frame(width: 40, alignment: .center)
@@ -273,32 +270,12 @@ struct SnippetsView: View {
                     .padding(.vertical, -4)
             }
 
-            Button {
-                snippet.isShellCommand.wrappedValue.toggle()
-            } label: {
-                Image(systemName: "terminal")
-                    .foregroundStyle(snippet.isShellCommand.wrappedValue ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.tertiary))
-            }
-            .buttonStyle(.plain)
-            .frame(width: 48)
+            SnippetModeButton(
+                isShell: snippet.isShellCommand,
+                hasPlaceholders: snippet.hasPlaceholders
+            )
+            .frame(width: 72)
             .disabled(snippet.isKeystroke.wrappedValue)
-            .help(snippet.isShellCommand.wrappedValue
-                ? "Expansion runs as a shell command — output is inserted"
-                : "Plain text expansion")
-
-            Button {
-                snippet.hasPlaceholders.wrappedValue.toggle()
-            } label: {
-                Text("{}")
-                    .font(.system(.caption, design: .monospaced).weight(snippet.hasPlaceholders.wrappedValue ? .bold : .regular))
-                    .foregroundStyle(snippet.hasPlaceholders.wrappedValue ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.tertiary))
-            }
-            .buttonStyle(.plain)
-            .frame(width: 40)
-            .disabled(snippet.isKeystroke.wrappedValue)
-            .help(snippet.hasPlaceholders.wrappedValue
-                ? "Prompts for {placeholder} values before inserting"
-                : "Insert expansion as-is")
 
             Button {
                 let on = !snippet.isKeystroke.wrappedValue
@@ -423,6 +400,69 @@ struct SnippetsView: View {
         newName = ""
         newExpansion = ""
         focus = .trigger
+    }
+}
+
+// MARK: - Mode Button
+
+/// Cycles through: plain → shell → placeholders → shell+placeholders
+private struct SnippetModeButton: View {
+    @Binding var isShell: Bool
+    @Binding var hasPlaceholders: Bool
+
+    private enum Mode: CaseIterable {
+        case plain, shell, placeholders, both
+    }
+
+    private var current: Mode {
+        switch (isShell, hasPlaceholders) {
+        case (false, false): return .plain
+        case (true,  false): return .shell
+        case (false, true):  return .placeholders
+        case (true,  true):  return .both
+        }
+    }
+
+    var body: some View {
+        Button { advance() } label: {
+            label
+        }
+        .buttonStyle(.plain)
+        .help(helpText)
+    }
+
+    @ViewBuilder private var label: some View {
+        switch current {
+        case .plain:
+            Text("—").foregroundStyle(.tertiary)
+        case .shell:
+            Image(systemName: "terminal").foregroundStyle(Color.accentColor)
+        case .placeholders:
+            Text("{}").font(.system(.caption, design: .monospaced).weight(.bold))
+                .foregroundStyle(Color.accentColor)
+        case .both:
+            HStack(spacing: 2) {
+                Image(systemName: "terminal")
+                Text("{}")
+                    .font(.system(.caption2, design: .monospaced).weight(.bold))
+            }
+            .foregroundStyle(Color.accentColor)
+        }
+    }
+
+    private var helpText: String {
+        switch current {
+        case .plain:        return "Plain text — tap to enable shell"
+        case .shell:        return "Shell command — tap to enable placeholders"
+        case .placeholders: return "Placeholders — tap to enable both"
+        case .both:         return "Shell + placeholders — tap to reset"
+        }
+    }
+
+    private func advance() {
+        let next = Mode.allCases[(Mode.allCases.firstIndex(of: current)! + 1) % Mode.allCases.count]
+        isShell         = (next == .shell || next == .both)
+        hasPlaceholders = (next == .placeholders || next == .both)
     }
 }
 
