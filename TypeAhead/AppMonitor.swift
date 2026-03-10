@@ -212,9 +212,12 @@ class AppMonitor: ObservableObject {
         wordBuffer.reset()
         suggestionPanel.hide()
 
-        if snippet.isKeystroke {
-            textInjector.inject(expansion: "", replacingPrefixOfLength: prefixLen)
-            fireKeystroke(keyCode: snippet.keystrokeKeyCode, modifiers: snippet.keystrokeModifiers)
+        if snippet.isKeystroke, snippet.keystrokeKeyCode >= 0 {
+            textInjector.injectKeystroke(
+                keyCode: CGKeyCode(snippet.keystrokeKeyCode),
+                modifiers: CGEventFlags(rawValue: UInt64(snippet.keystrokeModifiers)),
+                replacingPrefixOfLength: prefixLen
+            )
             return
         }
 
@@ -306,24 +309,7 @@ class AppMonitor: ObservableObject {
         return result
     }
 
-    /// Fires a keyboard shortcut after a brief delay so trigger-deletion events are processed first.
-    private func fireKeystroke(keyCode: Int, modifiers: Int) {
-        guard keyCode >= 0 else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-            guard let src = CGEventSource(stateID: .hidSystemState) else { return }
-            let flags = CGEventFlags(rawValue: UInt64(modifiers))
-            let dn = CGEvent(keyboardEventSource: src, virtualKey: CGKeyCode(keyCode), keyDown: true)
-            let up = CGEvent(keyboardEventSource: src, virtualKey: CGKeyCode(keyCode), keyDown: false)
-            dn?.flags = flags
-            up?.flags = flags
-            dn?.setIntegerValueField(.eventSourceUserData, value: TextInjector.markerValue)
-            up?.setIntegerValueField(.eventSourceUserData, value: TextInjector.markerValue)
-            dn?.post(tap: .cgAnnotatedSessionEventTap)
-            up?.post(tap: .cgAnnotatedSessionEventTap)
-        }
-    }
-
-    /// Runs a shell command synchronously (max 3s) and returns trimmed stdout.
+/// Runs a shell command synchronously (max 3s) and returns trimmed stdout.
     /// ⚠️ Experimental — blocks the main thread briefly.
     private func runShellCommand(_ command: String) -> String? {
         let process = Process()
