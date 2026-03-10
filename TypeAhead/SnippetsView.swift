@@ -263,7 +263,7 @@ struct SnippetsView: View {
                 snippet.isShellCommand.wrappedValue.toggle()
             } label: {
                 Image(systemName: "terminal")
-                    .foregroundStyle(snippet.isShellCommand.wrappedValue ? Color.accentColor : .tertiary)
+                    .foregroundStyle(snippet.isShellCommand.wrappedValue ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.tertiary))
             }
             .buttonStyle(.plain)
             .frame(width: 48)
