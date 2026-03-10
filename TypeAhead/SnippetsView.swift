@@ -185,6 +185,9 @@ struct SnippetsView: View {
             Text("{}")
                 .foregroundStyle(.secondary)
                 .frame(width: 40, alignment: .center)
+            Text("⌨")
+                .foregroundStyle(.secondary)
+                .frame(width: 40, alignment: .center)
             Text("Exact trigger")
                 .foregroundStyle(.secondary)
                 .frame(width: 96, alignment: .center)
@@ -256,11 +259,19 @@ struct SnippetsView: View {
             Text("→")
                 .foregroundStyle(.secondary)
 
-            TextEditor(text: snippet.expansion)
-                .font(.body)
-                .scrollContentBackground(.hidden)
-                .frame(minHeight: 20, maxHeight: 80)
-                .padding(.vertical, -4)
+            if snippet.isKeystroke.wrappedValue {
+                SnippetKeyRecorder(
+                    keyCode: snippet.keystrokeKeyCode,
+                    modifiers: snippet.keystrokeModifiers,
+                    label: snippet.expansion
+                )
+            } else {
+                TextEditor(text: snippet.expansion)
+                    .font(.body)
+                    .scrollContentBackground(.hidden)
+                    .frame(minHeight: 20, maxHeight: 80)
+                    .padding(.vertical, -4)
+            }
 
             Button {
                 snippet.isShellCommand.wrappedValue.toggle()
@@ -270,6 +281,7 @@ struct SnippetsView: View {
             }
             .buttonStyle(.plain)
             .frame(width: 48)
+            .disabled(snippet.isKeystroke.wrappedValue)
             .help(snippet.isShellCommand.wrappedValue
                 ? "Expansion runs as a shell command — output is inserted"
                 : "Plain text expansion")
@@ -283,9 +295,27 @@ struct SnippetsView: View {
             }
             .buttonStyle(.plain)
             .frame(width: 40)
+            .disabled(snippet.isKeystroke.wrappedValue)
             .help(snippet.hasPlaceholders.wrappedValue
                 ? "Prompts for {placeholder} values before inserting"
                 : "Insert expansion as-is")
+
+            Button {
+                let on = !snippet.isKeystroke.wrappedValue
+                snippet.isKeystroke.wrappedValue = on
+                if on {
+                    snippet.isShellCommand.wrappedValue = false
+                    snippet.hasPlaceholders.wrappedValue = false
+                }
+            } label: {
+                Image(systemName: "keyboard")
+                    .foregroundStyle(snippet.isKeystroke.wrappedValue ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.tertiary))
+            }
+            .buttonStyle(.plain)
+            .frame(width: 40)
+            .help(snippet.isKeystroke.wrappedValue
+                ? "Fires a keyboard shortcut on selection"
+                : "Normal text expansion")
 
             Button {
                 snippet.requiresExplicitTrigger.wrappedValue.toggle()

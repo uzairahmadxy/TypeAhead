@@ -212,6 +212,15 @@ class AppMonitor: ObservableObject {
         wordBuffer.reset()
         suggestionPanel.hide()
 
+        if snippet.isKeystroke, snippet.keystrokeKeyCode >= 0 {
+            textInjector.injectKeystroke(
+                keyCode: CGKeyCode(snippet.keystrokeKeyCode),
+                modifiers: CGEventFlags(rawValue: UInt64(snippet.keystrokeModifiers)),
+                replacingPrefixOfLength: prefixLen
+            )
+            return
+        }
+
         let placeholders = snippet.hasPlaceholders ? parsePlaceholders(snippet.expansion) : []
         if !placeholders.isEmpty {
             fillState = FillState(
@@ -300,7 +309,7 @@ class AppMonitor: ObservableObject {
         return result
     }
 
-    /// Runs a shell command synchronously (max 3s) and returns trimmed stdout.
+/// Runs a shell command synchronously (max 3s) and returns trimmed stdout.
     /// ⚠️ Experimental — blocks the main thread briefly.
     private func runShellCommand(_ command: String) -> String? {
         let process = Process()
