@@ -37,6 +37,7 @@ class AppMonitor: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var lastExpansionLength = 0
     private var watchdog: AnyCancellable?
+    private let hotkeyManager = HotkeyManager()
 
     init() {
         UserDefaults.standard.register(defaults: [
@@ -56,6 +57,7 @@ class AppMonitor: ObservableObject {
         setupCallbacks()
         if isEnabled { keyboardMonitor.start() }
         startWatchdog()
+        registerHotkey()
     }
 
     private static func storedTriggerPrefix() -> String {
@@ -73,6 +75,14 @@ class AppMonitor: ObservableObject {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent") {
             NSWorkspace.shared.open(url)
         }
+    }
+
+    // MARK: - Hotkey
+
+    private func registerHotkey() {
+        let keyCode  = UserDefaults.standard.integer(forKey: "hotkeyKeyCode")
+        let modifiers = UserDefaults.standard.integer(forKey: "hotkeyModifiers")
+        hotkeyManager.register(keyCode: keyCode == 0 ? -1 : keyCode, modifiers: modifiers)
     }
 
     // MARK: - Watchdog
@@ -140,6 +150,7 @@ class AppMonitor: ObservableObject {
                 wordBuffer.showOnPrefix = UserDefaults.standard.bool(forKey: "showOnPrefix")
                 wordBuffer.searchExpansions = UserDefaults.standard.bool(forKey: "searchExpansions")
                 wordBuffer.sortByRecency = UserDefaults.standard.bool(forKey: "sortByRecency")
+                registerHotkey()
             }
             .store(in: &cancellables)
     }

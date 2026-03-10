@@ -350,6 +350,13 @@ struct SnippetsView: View {
                 .font(.caption)
                 .controlSize(.small)
             Spacer()
+            HStack(spacing: 6) {
+                Text("Open shortcut:")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                KeyRecorderButton()
+                    .controlSize(.small)
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
