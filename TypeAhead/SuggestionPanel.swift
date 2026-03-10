@@ -233,30 +233,36 @@ struct FillView: View {
         .padding(4)
     }
 
-    /// Builds a mixed-style Text by walking the expansion template.
+    /// Builds a mixed-style AttributedString preview by walking the expansion template.
     private var previewText: Text {
-        var result = Text("")
+        var attrStr = AttributedString()
+
+        func segment(_ s: String, color: Color) -> AttributedString {
+            var a = AttributedString(s)
+            a.foregroundColor = color
+            return a
+        }
+
         var remaining = expansion[expansion.startIndex...]
         for (i, ph) in placeholders.enumerated() {
             let marker = "{\(ph)}"
             guard let range = remaining.range(of: marker) else { continue }
             let before = String(remaining[remaining.startIndex..<range.lowerBound])
             if !before.isEmpty {
-                result = result + Text(before).foregroundStyle(Color.white.opacity(0.55))
+                attrStr += segment(before, color: Color.white.opacity(0.55))
             }
             if i < index {
-                result = result + Text(collected[i]).foregroundStyle(Color.white)
+                attrStr += segment(collected[i], color: Color.white)
             } else if i == index {
-                let display = typed.isEmpty ? "_" : typed
-                result = result + Text(display).foregroundStyle(Color.accentColor)
+                attrStr += segment(typed.isEmpty ? "_" : typed, color: Color.accentColor)
             } else {
-                result = result + Text(marker).foregroundStyle(Color.white.opacity(0.25))
+                attrStr += segment(marker, color: Color.white.opacity(0.25))
             }
             remaining = remaining[range.upperBound...]
         }
         if !remaining.isEmpty {
-            result = result + Text(String(remaining)).foregroundStyle(Color.white.opacity(0.55))
+            attrStr += segment(String(remaining), color: Color.white.opacity(0.55))
         }
-        return result
+        return Text(attrStr)
     }
 }
