@@ -370,6 +370,15 @@ struct SnippetsView: View {
                 .controlSize(.small)
             Spacer()
             HStack(spacing: 6) {
+                Text("Command trigger:")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                KeyRecorderButton(keyCodeKey: "commandTriggerKeyCode",
+                                  modifiersKey: "commandTriggerModifiers",
+                                  labelKey: "commandTriggerLabel")
+                    .controlSize(.small)
+            }
+            HStack(spacing: 6) {
                 Text("Open shortcut:")
                     .font(.caption)
                     .foregroundStyle(.secondary)

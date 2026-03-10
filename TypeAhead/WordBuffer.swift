@@ -21,7 +21,13 @@ class WordBuffer {
     /// When true, sort popup results by most recently added instead of alphabetically.
     var sortByRecency: Bool = false
 
+    /// True when the snippet picker was opened via the command shortcut rather than
+    /// a typed prefix. Characters still flow through normally for filtering, but
+    /// `bufferLength` reflects only what was typed after activation.
+    private(set) var isCommandMode = false
+
     var bufferLength: Int { buffer.count }
+    private(set) var currentMatches: [Snippet] = []
 
     /// Called on the main thread whenever the match list changes.
     var onMatchesChanged: (([Snippet], String) -> Void)?
@@ -49,15 +55,25 @@ class WordBuffer {
             reset(); return
         }
         buffer.append(character)
-        // If buffer ends with the trigger prefix, reset to just the prefix
-        if buffer.hasSuffix(triggerPrefix) {
-            buffer = triggerPrefix
+        if !isCommandMode {
+            // If buffer ends with the trigger prefix, reset to just the prefix
+            if buffer.hasSuffix(triggerPrefix) {
+                buffer = triggerPrefix
+            }
         }
+        notifyMatches()
+    }
+
+    /// Activates command mode: shows all snippets immediately without a typed prefix.
+    func activateCommandMode() {
+        isCommandMode = true
+        buffer = ""
         notifyMatches()
     }
 
     func reset() {
         buffer = ""
+        isCommandMode = false
         onMatchesChanged?([], "")
     }
 
@@ -75,10 +91,14 @@ class WordBuffer {
     }
 
     private func notifyMatches() {
-        // Buffer must start with the prefix, and have at least one more character after it.
-        guard buffer.hasPrefix(triggerPrefix) else { onMatchesChanged?([], ""); return }
-        let query = String(buffer.dropFirst(triggerPrefix.count))
-        guard !query.isEmpty || showOnPrefix else { onMatchesChanged?([], ""); return }
+        let query: String
+        if isCommandMode {
+            query = buffer   // full buffer is the query; always show (at least all non-explicit)
+        } else {
+            guard buffer.hasPrefix(triggerPrefix) else { onMatchesChanged?([], ""); return }
+            query = String(buffer.dropFirst(triggerPrefix.count))
+            guard !query.isEmpty || showOnPrefix else { onMatchesChanged?([], ""); return }
+        }
 
         let indexed = Array(snippets.enumerated())
         let matches = indexed
@@ -100,6 +120,7 @@ class WordBuffer {
             print("[TypeAhead] Buffer: '\(buffer)' — \(matches.count) match(es): \(matches.map { "\($0.trigger)/\($0.displayName)" })")
         }
 
+        currentMatches = matches
         onMatchesChanged?(matches, buffer)
     }
 }

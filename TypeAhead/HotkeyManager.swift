@@ -39,9 +39,24 @@ import SwiftUI
 
 /// A button that shows the current shortcut and records a new one when clicked.
 struct KeyRecorderButton: View {
-    @AppStorage("hotkeyKeyCode")   private var keyCode: Int = -1
-    @AppStorage("hotkeyModifiers") private var modifiers: Int = 0
-    @AppStorage("hotkeyLabel")     private var label: String = ""
+    private let keyCodeKey: String
+    private let modifiersKey: String
+    private let labelKey: String
+
+    @AppStorage private var keyCode: Int
+    @AppStorage private var modifiers: Int
+    @AppStorage private var label: String
+
+    init(keyCodeKey: String = "hotkeyKeyCode",
+         modifiersKey: String = "hotkeyModifiers",
+         labelKey: String = "hotkeyLabel") {
+        self.keyCodeKey = keyCodeKey
+        self.modifiersKey = modifiersKey
+        self.labelKey = labelKey
+        _keyCode   = AppStorage(wrappedValue: -1, keyCodeKey)
+        _modifiers = AppStorage(wrappedValue: 0,  modifiersKey)
+        _label     = AppStorage(wrappedValue: "", labelKey)
+    }
 
     @State private var isRecording = false
     @State private var monitor: Any?

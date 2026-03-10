@@ -49,6 +49,7 @@ class AppMonitor: ObservableObject {
     private var fillState: FillState?
     private var watchdog: AnyCancellable?
     private let hotkeyManager = HotkeyManager()
+    private var commandTriggerMonitor: Any?
 
     init() {
         UserDefaults.standard.register(defaults: [
@@ -69,6 +70,7 @@ class AppMonitor: ObservableObject {
         if isEnabled { keyboardMonitor.start() }
         startWatchdog()
         registerHotkey()
+        registerCommandTrigger()
     }
 
     private static func storedTriggerPrefix() -> String {
@@ -94,6 +96,25 @@ class AppMonitor: ObservableObject {
         let keyCode  = UserDefaults.standard.integer(forKey: "hotkeyKeyCode")
         let modifiers = UserDefaults.standard.integer(forKey: "hotkeyModifiers")
         hotkeyManager.register(keyCode: keyCode == 0 ? -1 : keyCode, modifiers: modifiers)
+    }
+
+    private func registerCommandTrigger() {
+        if let m = commandTriggerMonitor { NSEvent.removeMonitor(m); commandTriggerMonitor = nil }
+        let keyCode = UserDefaults.standard.integer(forKey: "commandTriggerKeyCode")
+        let modifiers = UserDefaults.standard.integer(forKey: "commandTriggerModifiers")
+        guard keyCode > 0 else { return }
+        let targetCode = UInt16(keyCode)
+        let targetMods = NSEvent.ModifierFlags(rawValue: UInt(modifiers))
+            .intersection(.deviceIndependentFlagsMask)
+        commandTriggerMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            guard event.keyCode == targetCode, mods == targetMods else { return }
+            DispatchQueue.main.async { [weak self] in
+                guard let self, isEnabled else { return }
+                wordBuffer.activateCommandMode()
+                handleMatchesChanged(wordBuffer.currentMatches)
+            }
+        }
     }
 
     // MARK: - Watchdog
@@ -171,6 +192,7 @@ class AppMonitor: ObservableObject {
                 wordBuffer.searchExpansions = UserDefaults.standard.bool(forKey: "searchExpansions")
                 wordBuffer.sortByRecency = UserDefaults.standard.bool(forKey: "sortByRecency")
                 registerHotkey()
+                registerCommandTrigger()
             }
             .store(in: &cancellables)
     }
