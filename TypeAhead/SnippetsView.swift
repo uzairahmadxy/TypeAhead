@@ -389,6 +389,10 @@ struct SnippetsView: View {
                     .font(.system(.body, design: .monospaced))
                     .frame(width: 56)
                     .multilineTextAlignment(.center)
+                KeyRecorderButton(keyCodeKey: "commandTriggerKeyCode",
+                                  modifiersKey: "commandTriggerModifiers",
+                                  labelKey: "commandTriggerLabel")
+                    .controlSize(.small)
             }
             Toggle("Show all on prefix", isOn: $showOnPrefix)
                 .toggleStyle(.switch)
