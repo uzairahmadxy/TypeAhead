@@ -131,11 +131,6 @@ class AppMonitor: ObservableObject {
             textInjector.inject(expansion: "", replacingPrefixOfLength: len)
             return true
         }
-        keyboardMonitor.onFillCharacter = { [weak self] char in
-            guard let self, self.fillState != nil else { return }
-            self.fillState!.currentInput.append(char)
-            self.updateFillPanel()
-        }
         keyboardMonitor.isPopupVisible = { [weak self] in
             self?.suggestionPanel.isVisible ?? false
         }
@@ -226,6 +221,11 @@ class AppMonitor: ObservableObject {
                 isShell: snippet.isShellCommand,
                 collected: Array(repeating: "", count: placeholders.count)
             )
+            keyboardMonitor.onFillCharacter = { [weak self] char in
+                guard let self else { return }
+                self.fillState?.currentInput.append(char)
+                self.updateFillPanel()
+            }
             updateFillPanel()
         } else {
             injectExpansion(snippet.expansion, isShell: snippet.isShellCommand, prefixLen: prefixLen)
