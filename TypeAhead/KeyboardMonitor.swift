@@ -25,6 +25,10 @@ class KeyboardMonitor {
     /// Called on backspace. Return true to consume the event (undo last expansion).
     var onBackspace: (() -> Bool)?
 
+    /// When non-nil, the monitor is in fill mode: printable characters are consumed
+    /// and forwarded here instead of the word buffer.
+    var onFillCharacter: ((Character) -> Void)?
+
     var isTapActive: Bool { eventTap != nil }
 
     private var eventTap: CFMachPort?
@@ -111,8 +115,10 @@ class KeyboardMonitor {
 
     private func handleEvent(_ event: CGEvent) -> Unmanaged<CGEvent>? {
         let keyCode = Int(event.getIntegerValueField(.keyboardEventKeycode))
+        let inFillMode = onFillCharacter != nil
 
-        if isPopupVisible() {
+        // Special keys: intercept when popup visible or in fill mode
+        if isPopupVisible() || inFillMode {
             let specialKey: SpecialKey? = switch keyCode {
                 case 0x30: .tab
                 case 0x24: .returnKey
@@ -126,9 +132,20 @@ class KeyboardMonitor {
             }
         }
 
-        // Backspace: offer to undo the last expansion before normal processing
+        // Backspace: fill mode delete or undo last expansion
         if keyCode == 0x33, onBackspace?() == true {
             return nil
+        }
+
+        // Fill mode: consume printable characters and route to fill handler
+        if inFillMode,
+           let nsEvent = NSEvent(cgEvent: event),
+           let chars = nsEvent.characters, !chars.isEmpty {
+            let printable = chars.filter { $0 >= " " }
+            if !printable.isEmpty {
+                for char in printable { onFillCharacter?(char) }
+                return nil
+            }
         }
 
         if let nsEvent = NSEvent(cgEvent: event),

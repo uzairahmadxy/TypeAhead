@@ -15,6 +15,8 @@ struct Snippet: Identifiable, Codable, Equatable {
     var requiresExplicitTrigger: Bool = false
     /// When true, the expansion is executed as a shell command and its stdout is inserted.
     var isShellCommand: Bool = false
+    /// When true, {placeholder} tokens in the expansion are filled interactively before insertion.
+    var hasPlaceholders: Bool = false
     /// When this snippet was created — used for recency sorting.
     /// Defaults to .distantPast so snippets decoded without this field are detectable.
     var createdAt: Date = .distantPast

@@ -182,6 +182,9 @@ struct SnippetsView: View {
             Text("Shell")
                 .foregroundStyle(.secondary)
                 .frame(width: 48, alignment: .center)
+            Text("{}")
+                .foregroundStyle(.secondary)
+                .frame(width: 40, alignment: .center)
             Text("Exact trigger")
                 .foregroundStyle(.secondary)
                 .frame(width: 96, alignment: .center)
@@ -270,6 +273,19 @@ struct SnippetsView: View {
             .help(snippet.isShellCommand.wrappedValue
                 ? "Expansion runs as a shell command — output is inserted"
                 : "Plain text expansion")
+
+            Button {
+                snippet.hasPlaceholders.wrappedValue.toggle()
+            } label: {
+                Text("{}")
+                    .font(.system(.caption, design: .monospaced).weight(snippet.hasPlaceholders.wrappedValue ? .bold : .regular))
+                    .foregroundStyle(snippet.hasPlaceholders.wrappedValue ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.tertiary))
+            }
+            .buttonStyle(.plain)
+            .frame(width: 40)
+            .help(snippet.hasPlaceholders.wrappedValue
+                ? "Prompts for {placeholder} values before inserting"
+                : "Insert expansion as-is")
 
             Button {
                 snippet.requiresExplicitTrigger.wrappedValue.toggle()
