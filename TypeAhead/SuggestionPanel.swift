@@ -180,6 +180,8 @@ struct SuggestionView: View {
             }
             .frame(maxHeight: 72) // ~4 lines
 
+            typeIcons(for: snippet)
+
             if index == 0 {
                 Text("⇥")
                     .font(.caption)
@@ -193,6 +195,29 @@ struct SuggestionView: View {
                     in: RoundedRectangle(cornerRadius: 6))
         .padding(.horizontal, 4)
         .padding(.vertical, 2)
+    }
+
+    @ViewBuilder
+    private func typeIcons(for snippet: Snippet) -> some View {
+        HStack(spacing: 4) {
+            if snippet.isKeystroke {
+                Image(systemName: "command")
+                    .font(.caption2)
+                    .foregroundStyle(Color.purple.opacity(0.85))
+            } else {
+                if snippet.isShellCommand {
+                    Image(systemName: "terminal")
+                        .font(.caption2)
+                        .foregroundStyle(Color.orange.opacity(0.85))
+                }
+                if snippet.hasPlaceholders {
+                    Image(systemName: "curlybraces")
+                        .font(.caption2)
+                        .foregroundStyle(Color.cyan.opacity(0.85))
+                }
+            }
+        }
+        .padding(.top, 2)
     }
 }
 
