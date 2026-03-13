@@ -29,6 +29,12 @@ class KeyboardMonitor {
     /// and forwarded here instead of the word buffer.
     var onFillCharacter: ((Character) -> Void)?
 
+    /// Command trigger shortcut — checked inside the CGEventTap so it fires even
+    /// in Electron/VS Code apps that consume NSEvent global monitors first.
+    var commandTriggerKeyCode: Int = -1
+    var commandTriggerModifiers: Int = 0
+    var onCommandTrigger: (() -> Void)?
+
     var isTapActive: Bool { eventTap != nil }
 
     private var eventTap: CFMachPort?
@@ -115,6 +121,18 @@ class KeyboardMonitor {
 
     private func handleEvent(_ event: CGEvent) -> Unmanaged<CGEvent>? {
         let keyCode = Int(event.getIntegerValueField(.keyboardEventKeycode))
+
+        // Command trigger: checked first so it fires even in Electron/VS Code
+        if commandTriggerKeyCode >= 0, keyCode == commandTriggerKeyCode {
+            let flags = event.flags
+            let target = CGEventFlags(rawValue: UInt64(commandTriggerModifiers))
+            let mask: CGEventFlags = [.maskCommand, .maskAlternate, .maskControl, .maskShift]
+            if flags.intersection(mask) == target.intersection(mask) {
+                onCommandTrigger?()
+                return nil
+            }
+        }
+
         let inFillMode = onFillCharacter != nil
 
         // Special keys: intercept when popup visible or in fill mode
