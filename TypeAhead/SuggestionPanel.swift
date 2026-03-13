@@ -111,14 +111,27 @@ final class SuggestionPanel: NSPanel {
 
     private func position(near cursorRect: CGRect, preferredWidth: CGFloat) {
         let size = contentView?.fittingSize ?? CGSize(width: preferredWidth, height: 44)
-        let screenH = NSScreen.main?.frame.height ?? 0
-        let panelY = screenH - cursorRect.maxY - 6 - size.height
-        setFrame(NSRect(
-            x: cursorRect.minX,
-            y: panelY,
-            width: max(size.width, preferredWidth),
-            height: size.height
-        ), display: true)
+        let screen = NSScreen.main ?? NSScreen.screens[0]
+        let screenFrame = screen.visibleFrame   // excludes menu bar / Dock
+        let screenH = screen.frame.height       // full height for flipped-coord conversion
+
+        let panelW = max(size.width, preferredWidth)
+        let panelH = size.height
+
+        // Convert flipped AX coords → screen coords (Y=0 at bottom)
+        let cursorScreenBottom = screenH - cursorRect.maxY
+        let cursorScreenTop    = screenH - cursorRect.minY
+
+        // Prefer below; flip above if not enough room
+        let belowY = cursorScreenBottom - 6 - panelH
+        let aboveY = cursorScreenTop + 6
+        let panelY = belowY >= screenFrame.minY ? belowY : aboveY
+
+        // Clamp X so panel doesn't go off the right edge
+        let maxX = screenFrame.maxX - panelW
+        let panelX = min(cursorRect.minX, maxX)
+
+        setFrame(NSRect(x: panelX, y: panelY, width: panelW, height: panelH), display: true)
     }
 }
 
