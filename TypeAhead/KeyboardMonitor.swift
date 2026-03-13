@@ -117,6 +117,20 @@ class KeyboardMonitor {
         print("[TypeAhead] Keyboard monitoring stopped.")
     }
 
+    /// Destroys and recreates the tap without firing onTapStateChanged(false),
+    /// so TypeAhead moves back to the head of the CGEventTap chain.
+    func recreate() {
+        if let tap = eventTap {
+            CGEvent.tapEnable(tap: tap, enable: false)
+            if let source = runLoopSource {
+                CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
+                runLoopSource = nil
+            }
+            eventTap = nil
+        }
+        start()
+    }
+
     // MARK: - Event handling (runs on main thread)
 
     private func handleEvent(_ event: CGEvent) -> Unmanaged<CGEvent>? {
