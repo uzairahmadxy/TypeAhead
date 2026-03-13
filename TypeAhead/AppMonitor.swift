@@ -170,6 +170,16 @@ class AppMonitor: ObservableObject {
             }
             .store(in: &cancellables)
 
+        // Recreate the CGEventTap whenever a new app becomes frontmost so TypeAhead
+        // stays at the head of the tap chain (fixes Electron/VS Code command trigger).
+        NSWorkspace.shared.publisher(for: \.frontmostApplication)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self, isEnabled, tapActive else { return }
+                keyboardMonitor.recreate()
+            }
+            .store(in: &cancellables)
+
         // Sync trigger prefix from UserDefaults whenever it changes (e.g. from SnippetsView)
         NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
             .receive(on: DispatchQueue.main)
