@@ -41,6 +41,12 @@ struct MenuBarView: View {
                 }
                 .buttonStyle(.plain)
 
+                Button("Show Tour…") {
+                    NSApp.activate(ignoringOtherApps: true)
+                    openWindow(id: "onboarding")
+                }
+                .buttonStyle(.plain)
+
                 Divider()
 
                 Button("Open Accessibility Settings…") {
