@@ -49,7 +49,6 @@ class AppMonitor: ObservableObject {
     private var fillState: FillState?
     private var watchdog: AnyCancellable?
     private let hotkeyManager = HotkeyManager()
-    private var commandTriggerMonitor: Any?
 
     init() {
         UserDefaults.standard.register(defaults: [
@@ -99,21 +98,15 @@ class AppMonitor: ObservableObject {
     }
 
     private func registerCommandTrigger() {
-        if let m = commandTriggerMonitor { NSEvent.removeMonitor(m); commandTriggerMonitor = nil }
         let keyCode = UserDefaults.standard.integer(forKey: "commandTriggerKeyCode")
         let modifiers = UserDefaults.standard.integer(forKey: "commandTriggerModifiers")
-        guard keyCode > 0 else { return }
-        let targetCode = UInt16(keyCode)
-        let targetMods = NSEvent.ModifierFlags(rawValue: UInt(modifiers))
-            .intersection(.deviceIndependentFlagsMask)
-        commandTriggerMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-            guard event.keyCode == targetCode, mods == targetMods else { return }
-            DispatchQueue.main.async { [weak self] in
-                guard let self, isEnabled else { return }
-                wordBuffer.activateCommandMode()
-                handleMatchesChanged(wordBuffer.currentMatches)
-            }
+        // Route through the CGEventTap so it fires even in Electron/VS Code apps
+        keyboardMonitor.commandTriggerKeyCode = keyCode > 0 ? keyCode : -1
+        keyboardMonitor.commandTriggerModifiers = modifiers
+        keyboardMonitor.onCommandTrigger = { [weak self] in
+            guard let self, isEnabled else { return }
+            wordBuffer.activateCommandMode()
+            handleMatchesChanged(wordBuffer.currentMatches)
         }
     }
 
