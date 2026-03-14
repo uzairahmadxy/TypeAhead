@@ -13,6 +13,15 @@ struct Snippet: Identifiable, Codable, Equatable {
     /// When true, this snippet is excluded from the "show all on prefix" list.
     /// It only appears once the user has started typing its trigger explicitly.
     var requiresExplicitTrigger: Bool = false
+    /// When true, the expansion is executed as a shell command and its stdout is inserted.
+    var isShellCommand: Bool = false
+    /// When true, {placeholder} tokens in the expansion are filled interactively before insertion.
+    var hasPlaceholders: Bool = false
+    /// When true, selecting this snippet fires a keyboard shortcut instead of inserting text.
+    /// The shortcut key code and modifiers are stored below; `expansion` holds the display label.
+    var isKeystroke: Bool = false
+    var keystrokeKeyCode: Int = -1
+    var keystrokeModifiers: Int = 0
     /// When this snippet was created — used for recency sorting.
     /// Defaults to .distantPast so snippets decoded without this field are detectable.
     var createdAt: Date = .distantPast

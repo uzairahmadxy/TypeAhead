@@ -11,6 +11,24 @@ struct TextInjector {
     /// skip them and avoid a re-entrancy loop.
     static let markerValue: Int64 = 0x54414865  // "TAHe"
 
+    /// Deletes the typed trigger then fires a real key+modifier event — all in one
+    /// synchronous batch so nothing else can interleave.
+    func injectKeystroke(keyCode: CGKeyCode, modifiers: CGEventFlags, replacingPrefixOfLength prefixLength: Int) {
+        let source = CGEventSource(stateID: .hidSystemState)
+        for _ in 0..<prefixLength {
+            postKey(0x33, keyDown: true,  source: source)
+            postKey(0x33, keyDown: false, source: source)
+        }
+        // Post without the marker — the shortcut should reach the focused app
+        // exactly as if the user pressed it themselves.
+        guard let dn = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: true),
+              let up = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: false) else { return }
+        dn.flags = modifiers
+        up.flags = modifiers
+        dn.post(tap: .cgAnnotatedSessionEventTap)
+        up.post(tap: .cgAnnotatedSessionEventTap)
+    }
+
     func inject(expansion: String, replacingPrefixOfLength prefixLength: Int) {
         let source = CGEventSource(stateID: .hidSystemState)
 

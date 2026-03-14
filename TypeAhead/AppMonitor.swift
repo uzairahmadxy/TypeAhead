@@ -36,7 +36,19 @@ class AppMonitor: ObservableObject {
     private let textInjector = TextInjector()
     private var cancellables = Set<AnyCancellable>()
     private var lastExpansionLength = 0
+
+    private struct FillState {
+        var expansion: String
+        var placeholders: [String]
+        var prefixLen: Int
+        var isShell: Bool
+        var currentIndex: Int = 0
+        var currentInput: String = ""
+        var collected: [String]
+    }
+    private var fillState: FillState?
     private var watchdog: AnyCancellable?
+    private let hotkeyManager = HotkeyManager()
 
     init() {
         UserDefaults.standard.register(defaults: [
@@ -56,6 +68,8 @@ class AppMonitor: ObservableObject {
         setupCallbacks()
         if isEnabled { keyboardMonitor.start() }
         startWatchdog()
+        registerHotkey()
+        registerCommandTrigger()
     }
 
     private static func storedTriggerPrefix() -> String {
@@ -72,6 +86,27 @@ class AppMonitor: ObservableObject {
     func openInputMonitoringSettings() {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent") {
             NSWorkspace.shared.open(url)
+        }
+    }
+
+    // MARK: - Hotkey
+
+    private func registerHotkey() {
+        let keyCode  = UserDefaults.standard.integer(forKey: "hotkeyKeyCode")
+        let modifiers = UserDefaults.standard.integer(forKey: "hotkeyModifiers")
+        hotkeyManager.register(keyCode: keyCode == 0 ? -1 : keyCode, modifiers: modifiers)
+    }
+
+    private func registerCommandTrigger() {
+        let keyCode = UserDefaults.standard.integer(forKey: "commandTriggerKeyCode")
+        let modifiers = UserDefaults.standard.integer(forKey: "commandTriggerModifiers")
+        // Route through the CGEventTap so it fires even in Electron/VS Code apps
+        keyboardMonitor.commandTriggerKeyCode = keyCode > 0 ? keyCode : -1
+        keyboardMonitor.commandTriggerModifiers = modifiers
+        keyboardMonitor.onCommandTrigger = { [weak self] in
+            guard let self, isEnabled else { return }
+            wordBuffer.activateCommandMode()
+            handleMatchesChanged(wordBuffer.currentMatches)
         }
     }
 
@@ -95,7 +130,16 @@ class AppMonitor: ObservableObject {
             self?.handleMatchesChanged(matches)
         }
         keyboardMonitor.onBackspace = { [weak self] in
-            guard let self, lastExpansionLength > 0 else { return false }
+            guard let self else { return false }
+            // In fill mode, backspace removes the last typed character
+            if self.fillState != nil {
+                if !(self.fillState!.currentInput.isEmpty) {
+                    self.fillState!.currentInput.removeLast()
+                    self.updateFillPanel()
+                }
+                return true
+            }
+            guard lastExpansionLength > 0 else { return false }
             let len = lastExpansionLength
             lastExpansionLength = 0
             textInjector.inject(expansion: "", replacingPrefixOfLength: len)
@@ -122,7 +166,17 @@ class AppMonitor: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.wordBuffer.reset()
-                self?.suggestionPanel.hide()
+                self?.cancelFill()
+            }
+            .store(in: &cancellables)
+
+        // Recreate the CGEventTap whenever a new app becomes frontmost so TypeAhead
+        // stays at the head of the tap chain (fixes Electron/VS Code command trigger).
+        NSWorkspace.shared.publisher(for: \.frontmostApplication)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self, isEnabled, tapActive else { return }
+                keyboardMonitor.recreate()
             }
             .store(in: &cancellables)
 
@@ -140,6 +194,8 @@ class AppMonitor: ObservableObject {
                 wordBuffer.showOnPrefix = UserDefaults.standard.bool(forKey: "showOnPrefix")
                 wordBuffer.searchExpansions = UserDefaults.standard.bool(forKey: "searchExpansions")
                 wordBuffer.sortByRecency = UserDefaults.standard.bool(forKey: "sortByRecency")
+                registerHotkey()
+                registerCommandTrigger()
             }
             .store(in: &cancellables)
     }
@@ -160,6 +216,13 @@ class AppMonitor: ObservableObject {
     }
 
     private func handleSpecialKey(_ key: SpecialKey) -> Bool {
+        if fillState != nil {
+            switch key {
+            case .tab, .returnKey: advanceFill(); return true
+            case .escape:          cancelFill();  return true
+            default:               return false
+            }
+        }
         switch key {
         case .tab, .returnKey: acceptSuggestion(); return true
         case .escape:          wordBuffer.reset(); suggestionPanel.hide(); return true
@@ -173,8 +236,120 @@ class AppMonitor: ObservableObject {
         let prefixLen = wordBuffer.bufferLength
         wordBuffer.reset()
         suggestionPanel.hide()
-        textInjector.inject(expansion: snippet.expansion, replacingPrefixOfLength: prefixLen)
-        // Record expansion length so the next backspace can undo it
-        lastExpansionLength = snippet.expansion.count
+
+        if snippet.isKeystroke, snippet.keystrokeKeyCode >= 0 {
+            textInjector.injectKeystroke(
+                keyCode: CGKeyCode(snippet.keystrokeKeyCode),
+                modifiers: CGEventFlags(rawValue: UInt64(snippet.keystrokeModifiers)),
+                replacingPrefixOfLength: prefixLen
+            )
+            return
+        }
+
+        let placeholders = snippet.hasPlaceholders ? parsePlaceholders(snippet.expansion) : []
+        if !placeholders.isEmpty {
+            fillState = FillState(
+                expansion: snippet.expansion,
+                placeholders: placeholders,
+                prefixLen: prefixLen,
+                isShell: snippet.isShellCommand,
+                collected: Array(repeating: "", count: placeholders.count)
+            )
+            keyboardMonitor.onFillCharacter = { [weak self] char in
+                guard let self else { return }
+                self.fillState?.currentInput.append(char)
+                self.updateFillPanel()
+            }
+            updateFillPanel()
+        } else {
+            injectExpansion(snippet.expansion, isShell: snippet.isShellCommand, prefixLen: prefixLen)
+        }
+    }
+
+    private func updateFillPanel() {
+        guard let state = fillState else { return }
+        let ph = state.placeholders[state.currentIndex]
+        suggestionPanel.showFill(
+            placeholder: ph,
+            typed: state.currentInput,
+            index: state.currentIndex,
+            expansion: state.expansion,
+            placeholders: state.placeholders,
+            collected: state.collected,
+            near: cursorTracker.getCursorRect()
+        )
+    }
+
+    private func advanceFill() {
+        guard var state = fillState else { return }
+        state.collected[state.currentIndex] = state.currentInput
+        state.currentIndex += 1
+        if state.currentIndex < state.placeholders.count {
+            state.currentInput = ""
+            fillState = state
+            updateFillPanel()
+        } else {
+            let filled = fillPlaceholders(state.expansion, placeholders: state.placeholders, values: state.collected)
+            cancelFill()
+            injectExpansion(filled, isShell: state.isShell, prefixLen: state.prefixLen)
+        }
+    }
+
+    private func cancelFill() {
+        fillState = nil
+        keyboardMonitor.onFillCharacter = nil
+        suggestionPanel.hide()
+    }
+
+    private func injectExpansion(_ expansion: String, isShell: Bool, prefixLen: Int) {
+        if isShell {
+            let output = runShellCommand(expansion) ?? ""
+            textInjector.inject(expansion: output, replacingPrefixOfLength: prefixLen)
+            lastExpansionLength = output.count
+        } else {
+            textInjector.inject(expansion: expansion, replacingPrefixOfLength: prefixLen)
+            lastExpansionLength = expansion.count
+        }
+    }
+
+    private func parsePlaceholders(_ expansion: String) -> [String] {
+        let pattern = try! NSRegularExpression(pattern: "\\{([^}]+)\\}")
+        let range = NSRange(expansion.startIndex..., in: expansion)
+        var seen = Set<String>()
+        var result: [String] = []
+        for match in pattern.matches(in: expansion, range: range) {
+            if let r = Range(match.range(at: 1), in: expansion) {
+                let name = String(expansion[r])
+                if seen.insert(name).inserted { result.append(name) }
+            }
+        }
+        return result
+    }
+
+    private func fillPlaceholders(_ expansion: String, placeholders: [String], values: [String]) -> String {
+        var result = expansion
+        for (ph, val) in zip(placeholders, values) {
+            result = result.replacingOccurrences(of: "{\(ph)}", with: val)
+        }
+        return result
+    }
+
+/// Runs a shell command synchronously (max 3s) and returns trimmed stdout.
+    /// ⚠️ Experimental — blocks the main thread briefly.
+    private func runShellCommand(_ command: String) -> String? {
+        let process = Process()
+        let outPipe = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        process.arguments = ["-c", command]
+        process.standardOutput = outPipe
+        process.standardError = Pipe()
+        guard (try? process.run()) != nil else { return nil }
+        // Wait up to 3 seconds on a background thread
+        let sema = DispatchSemaphore(value: 0)
+        DispatchQueue.global().async { process.waitUntilExit(); sema.signal() }
+        if sema.wait(timeout: .now() + 3) == .timedOut { process.terminate() }
+        let data = outPipe.fileHandleForReading.readDataToEndOfFile()
+        return String(data: data, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

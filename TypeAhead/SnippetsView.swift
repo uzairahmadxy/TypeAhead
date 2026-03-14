@@ -14,6 +14,11 @@ struct SnippetsView: View {
     @State private var newTrigger = ""
     @State private var newName = ""
     @State private var newExpansion = ""
+    @State private var newIsShell = false
+    @State private var newHasPlaceholders = false
+    @State private var newIsKeystroke = false
+    @State private var newKeystrokeKeyCode = -1
+    @State private var newKeystrokeModifiers = 0
     @State private var searchText = ""
     @FocusState private var focus: FocusField?
     @State private var showingImporter = false
@@ -179,6 +184,12 @@ struct SnippetsView: View {
                 .frame(width: 120, alignment: .leading)
             sortHeaderButton("Expansion", key: .expansion)
             Spacer()
+            Text("Mode")
+                .foregroundStyle(.secondary)
+                .frame(width: 72, alignment: .center)
+            Text("⌨")
+                .foregroundStyle(.secondary)
+                .frame(width: 40, alignment: .center)
             Text("Exact trigger")
                 .foregroundStyle(.secondary)
                 .frame(width: 96, alignment: .center)
@@ -250,23 +261,43 @@ struct SnippetsView: View {
             Text("→")
                 .foregroundStyle(.secondary)
 
-            TextEditor(text: snippet.expansion)
-                .font(.body)
-                .scrollContentBackground(.hidden)
-                .frame(minHeight: 20, maxHeight: 80)
-                .padding(.vertical, -4)
+            if snippet.isKeystroke.wrappedValue {
+                SnippetKeyRecorder(
+                    keyCode: snippet.keystrokeKeyCode,
+                    modifiers: snippet.keystrokeModifiers,
+                    label: snippet.expansion
+                )
+            } else {
+                TextEditor(text: snippet.expansion)
+                    .font(.body)
+                    .scrollContentBackground(.hidden)
+                    .frame(minHeight: 20, maxHeight: 80)
+                    .padding(.vertical, -4)
+            }
+
+            SnippetModeButton(
+                isShell: snippet.isShellCommand,
+                hasPlaceholders: snippet.hasPlaceholders
+            )
+            .frame(width: 72)
+            .disabled(snippet.isKeystroke.wrappedValue)
 
             Button {
-                snippet.requiresExplicitTrigger.wrappedValue.toggle()
+                let on = !snippet.isKeystroke.wrappedValue
+                snippet.isKeystroke.wrappedValue = on
+                if on {
+                    snippet.isShellCommand.wrappedValue = false
+                    snippet.hasPlaceholders.wrappedValue = false
+                }
             } label: {
-                Image(systemName: snippet.requiresExplicitTrigger.wrappedValue ? "eye.slash" : "eye")
-                    .foregroundStyle(snippet.requiresExplicitTrigger.wrappedValue ? .primary : .tertiary)
+                Image(systemName: "keyboard")
+                    .foregroundStyle(snippet.isKeystroke.wrappedValue ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.tertiary))
             }
             .buttonStyle(.plain)
-            .frame(width: 96)
-            .help(snippet.requiresExplicitTrigger.wrappedValue
-                ? "Only shown when trigger is typed explicitly"
-                : "Shown in show-all list when prefix is typed")
+            .frame(width: 40)
+            .help(snippet.isKeystroke.wrappedValue
+                ? "Fires a keyboard shortcut on selection"
+                : "Normal text expansion")
 
             Button {
                 snippet.requiresExplicitTrigger.wrappedValue.toggle()
@@ -306,15 +337,44 @@ struct SnippetsView: View {
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 120)
                 .focused($focus, equals: .name)
-                .onSubmit { focus = .expansion }
+                .onSubmit { if !newIsKeystroke { focus = .expansion } }
 
             Text("→")
                 .foregroundStyle(.secondary)
 
-            TextField("expansion text", text: $newExpansion, axis: .vertical)
-                .textFieldStyle(.roundedBorder)
-                .lineLimit(1...4)
-                .focused($focus, equals: .expansion)
+            if newIsKeystroke {
+                SnippetKeyRecorder(
+                    keyCode: $newKeystrokeKeyCode,
+                    modifiers: $newKeystrokeModifiers,
+                    label: $newExpansion
+                )
+            } else {
+                TextField("expansion text", text: $newExpansion, axis: .vertical)
+                    .textFieldStyle(.roundedBorder)
+                    .lineLimit(1...4)
+                    .focused($focus, equals: .expansion)
+            }
+
+            // Mode toggle (plain / shell / {} / both)
+            SnippetModeButton(isShell: $newIsShell, hasPlaceholders: $newHasPlaceholders)
+                .disabled(newIsKeystroke)
+
+            // Keystroke toggle
+            Button {
+                newIsKeystroke.toggle()
+                if newIsKeystroke {
+                    newIsShell = false
+                    newHasPlaceholders = false
+                    newExpansion = ""
+                    newKeystrokeKeyCode = -1
+                    newKeystrokeModifiers = 0
+                }
+            } label: {
+                Image(systemName: "keyboard")
+                    .foregroundStyle(newIsKeystroke ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.tertiary))
+            }
+            .buttonStyle(.plain)
+            .help(newIsKeystroke ? "Fires a keyboard shortcut" : "Normal expansion")
 
             Button(action: commitAdd) {
                 Image(systemName: "plus.circle.fill")
@@ -322,7 +382,9 @@ struct SnippetsView: View {
                     .imageScale(.large)
             }
             .buttonStyle(.plain)
-            .disabled(newTrigger.trimmingCharacters(in: .whitespaces).isEmpty || newExpansion.isEmpty)
+            .disabled(newTrigger.trimmingCharacters(in: .whitespaces).isEmpty
+                      || (!newIsKeystroke && newExpansion.isEmpty)
+                      || (newIsKeystroke && newKeystrokeKeyCode < 0))
             .help("Add snippet")
         }
         .padding(12)
@@ -340,6 +402,10 @@ struct SnippetsView: View {
                     .font(.system(.body, design: .monospaced))
                     .frame(width: 56)
                     .multilineTextAlignment(.center)
+                KeyRecorderButton(keyCodeKey: "commandTriggerKeyCode",
+                                  modifiersKey: "commandTriggerModifiers",
+                                  labelKey: "commandTriggerLabel")
+                    .controlSize(.small)
             }
             Toggle("Show all on prefix", isOn: $showOnPrefix)
                 .toggleStyle(.switch)
@@ -350,6 +416,13 @@ struct SnippetsView: View {
                 .font(.caption)
                 .controlSize(.small)
             Spacer()
+            HStack(spacing: 6) {
+                Text("Open shortcut:")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                KeyRecorderButton()
+                    .controlSize(.small)
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -358,11 +431,84 @@ struct SnippetsView: View {
     // MARK: - Actions
 
     private func commitAdd() {
-        store.add(trigger: newTrigger, name: newName, expansion: newExpansion)
+        store.add(
+            trigger: newTrigger, name: newName, expansion: newExpansion,
+            isShell: newIsShell, hasPlaceholders: newHasPlaceholders,
+            isKeystroke: newIsKeystroke,
+            keystrokeKeyCode: newKeystrokeKeyCode, keystrokeModifiers: newKeystrokeModifiers
+        )
         newTrigger = ""
         newName = ""
         newExpansion = ""
+        newIsShell = false
+        newHasPlaceholders = false
+        newIsKeystroke = false
+        newKeystrokeKeyCode = -1
+        newKeystrokeModifiers = 0
         focus = .trigger
+    }
+}
+
+// MARK: - Mode Button
+
+/// Cycles through: plain → shell → placeholders → shell+placeholders
+private struct SnippetModeButton: View {
+    @Binding var isShell: Bool
+    @Binding var hasPlaceholders: Bool
+
+    private enum Mode: CaseIterable {
+        case plain, shell, placeholders, both
+    }
+
+    private var current: Mode {
+        switch (isShell, hasPlaceholders) {
+        case (false, false): return .plain
+        case (true,  false): return .shell
+        case (false, true):  return .placeholders
+        case (true,  true):  return .both
+        }
+    }
+
+    var body: some View {
+        Button { advance() } label: {
+            label
+        }
+        .buttonStyle(.plain)
+        .help(helpText)
+    }
+
+    @ViewBuilder private var label: some View {
+        switch current {
+        case .plain:
+            Text("—").foregroundStyle(.tertiary)
+        case .shell:
+            Image(systemName: "terminal").foregroundStyle(Color.accentColor)
+        case .placeholders:
+            Text("{}").font(.system(.caption, design: .monospaced).weight(.bold))
+                .foregroundStyle(Color.accentColor)
+        case .both:
+            HStack(spacing: 2) {
+                Image(systemName: "terminal")
+                Text("{}")
+                    .font(.system(.caption2, design: .monospaced).weight(.bold))
+            }
+            .foregroundStyle(Color.accentColor)
+        }
+    }
+
+    private var helpText: String {
+        switch current {
+        case .plain:        return "Plain text — tap to enable shell"
+        case .shell:        return "Shell command — tap to enable placeholders"
+        case .placeholders: return "Placeholders — tap to enable both"
+        case .both:         return "Shell + placeholders — tap to reset"
+        }
+    }
+
+    private func advance() {
+        let next = Mode.allCases[(Mode.allCases.firstIndex(of: current)! + 1) % Mode.allCases.count]
+        isShell         = (next == .shell || next == .both)
+        hasPlaceholders = (next == .placeholders || next == .both)
     }
 }
 

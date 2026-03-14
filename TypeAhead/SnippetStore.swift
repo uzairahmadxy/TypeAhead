@@ -27,10 +27,18 @@ class SnippetStore: ObservableObject {
 
     // MARK: - Public API
 
-    func add(trigger: String, name: String = "", expansion: String) {
+    func add(trigger: String, name: String = "", expansion: String,
+             isShell: Bool = false, hasPlaceholders: Bool = false,
+             isKeystroke: Bool = false, keystrokeKeyCode: Int = -1, keystrokeModifiers: Int = 0) {
         let t = trigger.trimmingCharacters(in: .whitespaces)
-        guard !t.isEmpty, !expansion.isEmpty else { return }
-        snippets.append(Snippet(trigger: t, name: name.trimmingCharacters(in: .whitespaces), expansion: expansion))
+        guard !t.isEmpty else { return }
+        var s = Snippet(trigger: t, name: name.trimmingCharacters(in: .whitespaces), expansion: expansion)
+        s.isShellCommand   = isShell
+        s.hasPlaceholders  = hasPlaceholders
+        s.isKeystroke      = isKeystroke
+        s.keystrokeKeyCode = keystrokeKeyCode
+        s.keystrokeModifiers = keystrokeModifiers
+        snippets.append(s)
     }
 
     func delete(_ snippet: Snippet) {

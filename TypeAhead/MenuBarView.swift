@@ -41,6 +41,12 @@ struct MenuBarView: View {
                 }
                 .buttonStyle(.plain)
 
+                Button("Show Tour…") {
+                    NSApp.activate(ignoringOtherApps: true)
+                    openWindow(id: "onboarding")
+                }
+                .buttonStyle(.plain)
+
                 Divider()
 
                 Button("Open Accessibility Settings…") {
@@ -69,6 +75,10 @@ struct MenuBarView: View {
             .padding(.vertical, 10)
         }
         .frame(width: 240)
+        .onReceive(NotificationCenter.default.publisher(for: .openManageSnippets)) { _ in
+            NSApp.activate(ignoringOtherApps: true)
+            openWindow(id: "snippets")
+        }
         .onAppear { checkAndOpenOnboarding() }
         .onChange(of: appMonitor.tapActive) {
             if !appMonitor.tapActive && appMonitor.isEnabled {

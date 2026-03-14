@@ -4,6 +4,8 @@ A lightweight macOS menu bar app that expands text snippets as you type — syst
 
 Type a trigger like `//email` and TypeAhead instantly replaces it with your full expansion.
 
+![TypeAhead demo](docs/demo.gif)
+
 ---
 
 ## Features

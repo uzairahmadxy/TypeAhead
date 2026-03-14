@@ -25,6 +25,16 @@ class KeyboardMonitor {
     /// Called on backspace. Return true to consume the event (undo last expansion).
     var onBackspace: (() -> Bool)?
 
+    /// When non-nil, the monitor is in fill mode: printable characters are consumed
+    /// and forwarded here instead of the word buffer.
+    var onFillCharacter: ((Character) -> Void)?
+
+    /// Command trigger shortcut — checked inside the CGEventTap so it fires even
+    /// in Electron/VS Code apps that consume NSEvent global monitors first.
+    var commandTriggerKeyCode: Int = -1
+    var commandTriggerModifiers: Int = 0
+    var onCommandTrigger: (() -> Void)?
+
     var isTapActive: Bool { eventTap != nil }
 
     private var eventTap: CFMachPort?
@@ -107,12 +117,40 @@ class KeyboardMonitor {
         print("[TypeAhead] Keyboard monitoring stopped.")
     }
 
+    /// Destroys and recreates the tap without firing onTapStateChanged(false),
+    /// so TypeAhead moves back to the head of the CGEventTap chain.
+    func recreate() {
+        if let tap = eventTap {
+            CGEvent.tapEnable(tap: tap, enable: false)
+            if let source = runLoopSource {
+                CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
+                runLoopSource = nil
+            }
+            eventTap = nil
+        }
+        start()
+    }
+
     // MARK: - Event handling (runs on main thread)
 
     private func handleEvent(_ event: CGEvent) -> Unmanaged<CGEvent>? {
         let keyCode = Int(event.getIntegerValueField(.keyboardEventKeycode))
 
-        if isPopupVisible() {
+        // Command trigger: checked first so it fires even in Electron/VS Code
+        if commandTriggerKeyCode >= 0, keyCode == commandTriggerKeyCode {
+            let flags = event.flags
+            let target = CGEventFlags(rawValue: UInt64(commandTriggerModifiers))
+            let mask: CGEventFlags = [.maskCommand, .maskAlternate, .maskControl, .maskShift]
+            if flags.intersection(mask) == target.intersection(mask) {
+                onCommandTrigger?()
+                return nil
+            }
+        }
+
+        let inFillMode = onFillCharacter != nil
+
+        // Special keys: intercept when popup visible or in fill mode
+        if isPopupVisible() || inFillMode {
             let specialKey: SpecialKey? = switch keyCode {
                 case 0x30: .tab
                 case 0x24: .returnKey
@@ -126,9 +164,20 @@ class KeyboardMonitor {
             }
         }
 
-        // Backspace: offer to undo the last expansion before normal processing
+        // Backspace: fill mode delete or undo last expansion
         if keyCode == 0x33, onBackspace?() == true {
             return nil
+        }
+
+        // Fill mode: consume printable characters and route to fill handler
+        if inFillMode,
+           let nsEvent = NSEvent(cgEvent: event),
+           let chars = nsEvent.characters, !chars.isEmpty {
+            let printable = chars.filter { $0 >= " " }
+            if !printable.isEmpty {
+                for char in printable { onFillCharacter?(char) }
+                return nil
+            }
         }
 
         if let nsEvent = NSEvent(cgEvent: event),
